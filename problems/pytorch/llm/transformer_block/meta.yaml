@@ -1,0 +1,6 @@
+title: "LLaMA-style Transformer Block"
+difficulty: hard
+framework: pytorch
+tags: [transformer, llm, integration]
+timeout: 10
+entrypoint: TransformerBlock

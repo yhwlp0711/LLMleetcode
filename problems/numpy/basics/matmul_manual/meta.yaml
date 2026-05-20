@@ -1,0 +1,6 @@
+title: "手撕 matmul / 转置 / batched matmul"
+difficulty: medium
+framework: numpy
+tags: [basics, linalg]
+timeout: 5
+entrypoint: matmul

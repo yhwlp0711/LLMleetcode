@@ -1,0 +1,6 @@
+title: "Scaled Dot-Product Attention"
+difficulty: easy
+framework: pytorch
+tags: [attention, transformer, llm]
+timeout: 10
+entrypoint: sdpa

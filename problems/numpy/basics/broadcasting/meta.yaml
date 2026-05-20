@@ -1,0 +1,6 @@
+title: "广播与外积运算"
+difficulty: easy
+framework: numpy
+tags: [basics, broadcasting]
+timeout: 5
+entrypoint: multiple

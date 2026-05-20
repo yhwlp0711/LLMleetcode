@@ -1,0 +1,6 @@
+title: "SwiGLU FFN（LLaMA 风格）"
+difficulty: medium
+framework: pytorch
+tags: [nn, activations, llm, transformer]
+timeout: 10
+entrypoint: SwiGLUFFN

@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.DS_Store
+workspace/*
+!workspace/.gitkeep
+*.pt
+*.pth
+node_modules/
+.neoko/
+.neeko/

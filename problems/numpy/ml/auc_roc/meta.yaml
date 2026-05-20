@@ -1,0 +1,6 @@
+title: "ROC 曲线与 AUC"
+difficulty: medium
+framework: numpy
+tags: [metrics, classification]
+timeout: 5
+entrypoint: auc_roc

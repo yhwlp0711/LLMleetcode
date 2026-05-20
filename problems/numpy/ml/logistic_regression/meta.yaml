@@ -1,0 +1,6 @@
+title: "手撕逻辑回归（NumPy）"
+difficulty: easy
+framework: numpy
+tags: [classification, gradient-descent]
+timeout: 10
+entrypoint: fit_predict_proba

@@ -1,0 +1,6 @@
+title: "LayerNorm 模块"
+difficulty: medium
+framework: pytorch
+tags: [nn, normalization]
+timeout: 10
+entrypoint: LayerNorm

@@ -1,0 +1,6 @@
+title: "Multi-Head Attention（纯函数版）"
+difficulty: medium
+framework: pytorch
+tags: [attention, transformer, llm]
+timeout: 10
+entrypoint: mha

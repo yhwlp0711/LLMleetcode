@@ -1,0 +1,6 @@
+title: "激活函数"
+difficulty: easy
+framework: pytorch
+tags: [nn, activations, llm]
+timeout: 5
+entrypoint: multiple

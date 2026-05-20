@@ -1,0 +1,6 @@
+title: "Top-k / Top-p (Nucleus) Sampling"
+difficulty: medium
+framework: pytorch
+tags: [decoding, sampling, llm]
+timeout: 5
+entrypoint: filter_logits

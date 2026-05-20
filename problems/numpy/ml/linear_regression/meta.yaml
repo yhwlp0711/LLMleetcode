@@ -1,0 +1,6 @@
+title: "手撕线性回归（NumPy）"
+difficulty: easy
+framework: numpy
+tags: [regression, gradient-descent]
+timeout: 10
+entrypoint: fit_predict

@@ -1,0 +1,6 @@
+title: "Grouped-Query Attention (GQA)"
+difficulty: medium
+framework: pytorch
+tags: [attention, llm, inference-optimization]
+timeout: 5
+entrypoint: gqa

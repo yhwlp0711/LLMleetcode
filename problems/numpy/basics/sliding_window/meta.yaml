@@ -1,0 +1,6 @@
+title: "滑动窗口"
+difficulty: medium
+framework: numpy
+tags: [basics, strides, convolution]
+timeout: 5
+entrypoint: sliding_window_1d

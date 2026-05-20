@@ -1,0 +1,6 @@
+title: "手撕线性回归（PyTorch Autograd）"
+difficulty: easy
+framework: pytorch
+tags: [regression, autograd, training-loop]
+timeout: 15
+entrypoint: fit_predict

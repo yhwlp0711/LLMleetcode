@@ -1,0 +1,6 @@
+title: "PCA 主成分分析"
+difficulty: medium
+framework: numpy
+tags: [dimensionality-reduction, unsupervised, linalg]
+timeout: 5
+entrypoint: pca

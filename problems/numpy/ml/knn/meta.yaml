@@ -1,0 +1,6 @@
+title: "KNN 分类"
+difficulty: easy
+framework: numpy
+tags: [classification, distance]
+timeout: 5
+entrypoint: knn_predict

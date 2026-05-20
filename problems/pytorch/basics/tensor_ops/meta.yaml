@@ -1,0 +1,6 @@
+title: "PyTorch 张量操作热身"
+difficulty: easy
+framework: pytorch
+tags: [basics, tensor, manipulation]
+timeout: 5
+entrypoint: multiple

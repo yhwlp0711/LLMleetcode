@@ -1,0 +1,6 @@
+title: "Sinusoidal Position Encoding"
+difficulty: easy
+framework: pytorch
+tags: [position-encoding, transformer, llm]
+timeout: 5
+entrypoint: build_sinusoidal_pe

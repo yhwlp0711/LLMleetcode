@@ -1,0 +1,6 @@
+title: "Rotary Position Embeddings (RoPE)"
+difficulty: medium
+framework: pytorch
+tags: [position-encoding, transformer, llm]
+timeout: 10
+entrypoint: apply_rope

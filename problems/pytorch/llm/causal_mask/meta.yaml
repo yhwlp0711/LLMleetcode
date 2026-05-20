@@ -1,0 +1,6 @@
+title: "因果 + Padding Mask"
+difficulty: easy
+framework: pytorch
+tags: [attention, mask, llm]
+timeout: 5
+entrypoint: build_attention_mask

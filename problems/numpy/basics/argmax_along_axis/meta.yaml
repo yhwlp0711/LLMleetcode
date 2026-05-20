@@ -1,0 +1,6 @@
+title: "按轴 argmax"
+difficulty: easy
+framework: numpy
+tags: [basics, reduction, indexing]
+timeout: 5
+entrypoint: argmax_along_axis
