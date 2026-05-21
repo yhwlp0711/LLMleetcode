@@ -2,9 +2,7 @@
 
 ## 公式回顾
 
-$$\text{PE}[pos, 2i]   = \sin(pos \cdot \theta_i),\quad
-  \text{PE}[pos, 2i+1] = \cos(pos \cdot \theta_i),\quad
-  \theta_i = 10000^{-2i / d_{\text{model}}}$$
+$$\text{PE}[pos, 2i] = \sin(pos \cdot \theta\_i),\quad \text{PE}[pos, 2i+1] = \cos(pos \cdot \theta\_i),\quad \theta\_i = 10000^{-2i / d\\_{\text{model}}}$$
 
 ## 参考实现
 

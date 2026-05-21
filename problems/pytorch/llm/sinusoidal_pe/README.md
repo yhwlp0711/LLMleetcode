@@ -14,10 +14,11 @@ def build_sinusoidal_pe(seq_len: int, d_model: int) -> torch.Tensor:
 
 对位置 $pos$ 和维度 $i$：
 
-$$\text{PE}[pos, 2i]   = \sin\!\bigl(pos / 10000^{2i / d_{\text{model}}}\bigr)$$
-$$\text{PE}[pos, 2i+1] = \cos\!\bigl(pos / 10000^{2i / d_{\text{model}}}\bigr)$$
+$$\text{PE}[pos, 2i] = \sin\!\bigl(pos / 10000^{2i / d\_{\text{model}}}\bigr)$$
 
-即：**偶数维放 sin，奇数维放 cos**，频率 $\theta_i = 1/10000^{2i/d_{\text{model}}}$。
+$$\text{PE}[pos, 2i+1] = \cos\!\bigl(pos / 10000^{2i / d\_{\text{model}}}\bigr)$$
+
+即：**偶数维放 sin，奇数维放 cos**，频率 $\theta\\_i = 1/10000^{2i/d\\_{\text{model}}}$。
 
 ## 说明
 

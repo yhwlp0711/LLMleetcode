@@ -31,16 +31,16 @@ def _sigmoid(z):
 ## 2. 梯度推导
 
 二分类交叉熵：
-$L = -\frac{1}{N}\sum_i [y_i \log p_i + (1-y_i)\log(1-p_i)]$，其中
-$p_i = \sigma(z_i)$，$z_i = w^\top x_i + b$。
+$L = -\frac{1}{N}\sum\_i [y\_i \log p\_i + (1-y\_i)\log(1-p\_i)]$，其中
+$p\_i = \sigma(z\_i)$，$z\_i = w^\top x\_i + b$。
 
 `dL/dp_i` 与 `dp_i/dz_i = p_i(1-p_i)` 凑一起，得到非常优美的形式：
 
-$$\frac{\partial L}{\partial z_i} = p_i - y_i$$
+$$\frac{\partial L}{\partial z\_i} = p\_i - y\_i$$
 
 继续链式求 `w` 和 `b`：
 
-$$\nabla_w = \frac{1}{N} X^\top (p - y),\quad \nabla_b = \frac{1}{N}\sum (p - y)$$
+$$\nabla\_w = \frac{1}{N} X^\top (p - y),\quad \nabla\_b = \frac{1}{N}\sum (p - y)$$
 
 **注意**：这里是 `1/N`，不像线性回归是 `2/N`（因为损失里没有平方系数）。
 

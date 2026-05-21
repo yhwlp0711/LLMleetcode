@@ -4,7 +4,7 @@
 的 `Linear → ReLU → Linear`（2 个矩阵）不同，现代 LLM 用**门控** FFN，含
 **3 个**线性层：
 
-$$\text{FFN}(x) = W_{\text{down}}\bigl(\text{SiLU}(W_{\text{gate}}\,x) \odot W_{\text{up}}\,x\bigr)$$
+$$\text{FFN}(x) = W\_{\text{down}}\bigl(\text{SiLU}(W\_{\text{gate}}\,x) \odot W\_{\text{up}}\,x\bigr)$$
 
 ## 待实现类
 

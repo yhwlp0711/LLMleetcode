@@ -25,11 +25,11 @@ def fit_predict(
 
 1. `w` 初始化为全零向量（shape `(D,)`），`b = 0.0`。
 2. 使用 **均方误差（MSE）** 损失：
-   $$L = \frac{1}{N}\sum_i (\hat{y}_i - y_i)^2$$
+   $$L = \frac{1}{N}\sum\_i (\hat{y}\_i - y\_i)^2$$
 3. 使用 **批量梯度下降**（一次更新用全部样本，不分 mini-batch），共 `epochs` 轮：
    - 前向：$\hat{y} = Xw + b$
-   - 梯度：$\nabla_w = \frac{2}{N} X^T(\hat{y} - y)$，$\nabla_b = \frac{2}{N}\sum(\hat{y} - y)$
-   - 更新：$w \leftarrow w - \text{lr} \cdot \nabla_w$，$b \leftarrow b - \text{lr} \cdot \nabla_b$
+   - 梯度：$\nabla\_w = \frac{2}{N} X^T(\hat{y} - y)$，$\nabla\_b = \frac{2}{N}\sum(\hat{y} - y)$
+   - 更新：$w \leftarrow w - \text{lr} \cdot \nabla\_w$，$b \leftarrow b - \text{lr} \cdot \nabla\_b$
 4. 训练完后返回 `w`、`b`、以及在 `X_test` 上的预测。
 
 ## 说明

@@ -25,7 +25,7 @@ def mha(
 2. **切分多头**：reshape 到 `(B, T, num_heads, head_dim)`，再 transpose 到
    `(B, num_heads, T, head_dim)`。其中 `head_dim = D / num_heads`。
 3. **每头做 SDPA**：
-   $\text{softmax}\big(QK^\top / \sqrt{\text{head\_dim}} + \text{mask}\big) V$
+   $\text{softmax}\big(QK^\top / \sqrt{\text{head\\_dim}} + \text{mask}\big) V$
 4. **合并多头**：transpose 回 `(B, T, num_heads, head_dim)`，再 reshape 成
    `(B, T, D)`。
 5. **输出投影**：`out = merged @ W_o`，shape `(B, T, D)`。

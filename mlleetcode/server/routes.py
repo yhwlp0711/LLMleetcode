@@ -76,7 +76,7 @@ def get_problem(problem_id: str):
     )
 
 
-@router.get("/problems/{problem_id:path}/solution", response_model=ProblemSolution)
+@router.get("/solution/{problem_id:path}", response_model=ProblemSolution)
 def get_solution(problem_id: str):
     try:
         p = find_problem(problem_id)

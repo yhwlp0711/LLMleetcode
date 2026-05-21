@@ -4,7 +4,7 @@
 
 RoPE 的核心想法：**把位置信息编码进 Q/K 向量本身**，做法是「按位置旋转
 特征对」。两个相邻特征 `(x_{2i}, x_{2i+1})` 看作复平面上的点，按角度
-$m \theta_i$ 旋转，旋转矩阵：
+$m \theta\_i$ 旋转，旋转矩阵：
 
 $$R(\phi) = \begin{pmatrix}\cos\phi & -\sin\phi \\ \sin\phi & \cos\phi\end{pmatrix}$$
 

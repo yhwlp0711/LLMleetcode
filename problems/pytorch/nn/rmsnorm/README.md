@@ -25,7 +25,7 @@ class RMSNorm(nn.Module):
 
 给定 `x`（shape `(..., normalized_dim)`）：
 
-$$\text{RMS}(x) = \sqrt{\frac{1}{D}\sum_i x_i^2 + \epsilon}$$
+$$\text{RMS}(x) = \sqrt{\frac{1}{D}\sum\_i x\_i^2 + \epsilon}$$
 
 $$y = \frac{x}{\text{RMS}(x)} \cdot \text{weight}$$
 

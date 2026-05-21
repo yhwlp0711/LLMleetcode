@@ -22,7 +22,7 @@ $$\text{GELU}(x) = x \cdot \Phi(x) = \frac{x}{2}\bigl(1 + \operatorname{erf}(x /
 
 GELU 的 tanh 近似（原论文版本，GPT-2/3 用它）：
 
-$$\text{GELU}_{\tanh}(x) = \frac{x}{2}\bigl(1 + \tanh\bigl[\sqrt{2/\pi}\,(x + 0.044715\,x^3)\bigr]\bigr)$$
+$$\text{GELU}\_{\tanh}(x) = \frac{x}{2}\bigl(1 + \tanh\bigl[\sqrt{2/\pi}\,(x + 0.044715\,x^3)\bigr]\bigr)$$
 
 ### 4. `swiglu(x, gate)`
 

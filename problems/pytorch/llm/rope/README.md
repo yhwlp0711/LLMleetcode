@@ -20,8 +20,8 @@ def build_rope_cache(seq_len: int, head_dim: int, base: float = 10000.0
 
 对每对特征索引 `(2i, 2i+1)`（`i = 0, 1, ..., head_dim/2 - 1`）和位置 `m`：
 
-- 频率：$\theta_i = 1 / \text{base}^{2i / \text{head\_dim}}$
-- 角度：$m \cdot \theta_i$
+- 频率：$\theta\_i = 1 / \text{base}^{2i / \text{head\\_dim}}$
+- 角度：$m \cdot \theta\_i$
 
 cos/sin 表里 `cos[m, 2i] = cos[m, 2i+1] = cos(m * θ_i)`（成对复制相同值），
 sin 同理。这样旋转就是一个 elementwise 乘法。
@@ -45,10 +45,9 @@ def apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.T
 
 对每对 `(x[..., 2i], x[..., 2i+1])` 做旋转：
 
-$$\begin{aligned}
-\text{out}[..., 2i]   &= x[..., 2i]   \cdot \cos(m \theta_i) - x[..., 2i+1] \cdot \sin(m \theta_i) \\
-\text{out}[..., 2i+1] &= x[..., 2i+1] \cdot \cos(m \theta_i) + x[..., 2i]   \cdot \sin(m \theta_i)
-\end{aligned}$$
+$$\text{out}[\ldots, 2i] = x[\ldots, 2i] \cdot \cos(m\theta\\_i) - x[\ldots, 2i+1] \cdot \sin(m\theta\\_i)$$
+
+$$\text{out}[\ldots, 2i+1] = x[\ldots, 2i+1] \cdot \cos(m\theta\\_i) + x[\ldots, 2i] \cdot \sin(m\theta\\_i)$$
 
 **优雅的形式**：把 `x` 的每对相邻元素「交换并把第一个取负」，得到
 `x_rotated = (-x_2, x_1, -x_4, x_3, ...)`。则

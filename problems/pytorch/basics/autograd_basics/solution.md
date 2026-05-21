@@ -24,7 +24,7 @@ def grad_of_scalar(x, fn):
 
 中心差分公式：
 
-$$J[i, j] \approx \frac{f_i(x + \epsilon e_j) - f_i(x - \epsilon e_j)}{2\epsilon}$$
+$$J[i, j] \approx \frac{f\_i(x + \epsilon e\_j) - f\_i(x - \epsilon e\_j)}{2\epsilon}$$
 
 需要循环遍历输入的每一维 `j`（这道题**允许**循环，因为禁用 autograd 后没
 有别的办法）。

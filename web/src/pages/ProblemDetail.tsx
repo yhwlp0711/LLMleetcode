@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkMath from 'remark-math'
+import remarkGfm from 'remark-gfm'
 import rehypeKatex from 'rehype-katex'
 import Editor from '@monaco-editor/react'
 import { fetchProblem, fetchSolution, submitCode } from '../api/client'
@@ -61,7 +62,8 @@ export default function ProblemDetail() {
     <div className="flex h-[calc(100vh-52px)]">
       {/* Left panel: description / result / solution */}
       <div className="w-1/2 border-r border-slate-700 flex flex-col overflow-hidden">
-        <div className="flex border-b border-slate-700">
+        <div className="flex border-b border-slate-700 items-center">
+          <Link to="/" className="px-3 py-2 text-slate-400 hover:text-cyan-400 text-sm">← 返回</Link>
           <Tab active={activeTab === 'description'} onClick={() => setActiveTab('description')}>题面</Tab>
           <Tab active={activeTab === 'result'} onClick={() => setActiveTab('result')}>
             结果 {result && <Score score={result.score} />}
@@ -70,13 +72,13 @@ export default function ProblemDetail() {
         </div>
         <div className="flex-1 overflow-y-auto p-5">
           {activeTab === 'description' && (
-            <div className="prose prose-invert prose-sm max-w-none">
+            <div className="markdown-body">
               <div className="flex gap-2 mb-3">
                 <span className={`text-xs px-2 py-0.5 rounded ${problem.difficulty === 'easy' ? 'bg-green-900 text-green-300' : problem.difficulty === 'medium' ? 'bg-yellow-900 text-yellow-300' : 'bg-red-900 text-red-300'}`}>{problem.difficulty}</span>
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">{problem.framework}</span>
                 {problem.tags.map(t => <span key={t} className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">{t}</span>)}
               </div>
-              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
                 {problem.readme}
               </ReactMarkdown>
             </div>
@@ -84,14 +86,15 @@ export default function ProblemDetail() {
           {activeTab === 'result' && result && <ResultPanel result={result} />}
           {activeTab === 'result' && !result && <div className="text-slate-500">尚未提交</div>}
           {activeTab === 'solution' && solution && (
-            <div className="prose prose-invert prose-sm max-w-none">
-              <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+            <div className="markdown-body">
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}
+                components={{ pre: CopyablePre }}>
                 {solution.solution_md}
               </ReactMarkdown>
               {solution.solution_py && (
                 <>
                   <h2>参考代码</h2>
-                  <pre className="bg-slate-900 p-4 rounded text-sm overflow-x-auto"><code>{solution.solution_py}</code></pre>
+                  <CopyableCodeBlock code={solution.solution_py} />
                 </>
               )}
             </div>
@@ -136,6 +139,49 @@ export default function ProblemDetail() {
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+function CopyableCodeBlock({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="relative group">
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-2 py-1 text-xs rounded bg-slate-700 text-slate-300 opacity-0 group-hover:opacity-100 transition hover:bg-slate-600"
+      >
+        {copied ? '已复制' : '复制'}
+      </button>
+      <pre className="bg-slate-900 border border-slate-700 p-4 rounded text-sm overflow-x-auto">
+        <code>{code}</code>
+      </pre>
+    </div>
+  )
+}
+
+function CopyablePre({ children, ...props }: React.HTMLAttributes<HTMLPreElement> & { children?: React.ReactNode }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = () => {
+    const text = (children as any)?.props?.children || ''
+    navigator.clipboard.writeText(typeof text === 'string' ? text : '')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <div className="relative group">
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-2 py-1 text-xs rounded bg-slate-700 text-slate-300 opacity-0 group-hover:opacity-100 transition hover:bg-slate-600"
+      >
+        {copied ? '已复制' : '复制'}
+      </button>
+      <pre {...props}>{children}</pre>
     </div>
   )
 }

@@ -28,9 +28,9 @@ def fit_predict_proba(
    **要数值稳定** —— 当 `z` 非常负时 `exp(-z)` 会溢出，需要分支处理或用
    `np.where` + `1 / (1 + exp(-|z|))` 的技巧。
 3. 使用 **二分类交叉熵** 损失：
-   $L = -\frac{1}{N}\sum_i \bigl[y_i \log p_i + (1-y_i) \log(1 - p_i)\bigr]$
+   $L = -\frac{1}{N}\sum\_i \bigl[y\_i \log p\_i + (1-y\_i) \log(1 - p\_i)\bigr]$
 4. 梯度（已经化简过）：
-   $\nabla_w = \frac{1}{N} X^T (p - y)$，$\nabla_b = \frac{1}{N} \sum (p - y)$
+   $\nabla\_w = \frac{1}{N} X^T (p - y)$，$\nabla\_b = \frac{1}{N} \sum (p - y)$
 5. 共 `epochs` 轮 SGD 更新。
 
 ## 说明

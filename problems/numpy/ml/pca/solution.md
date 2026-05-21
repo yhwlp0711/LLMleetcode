@@ -9,7 +9,7 @@ PCA 的最优解 = 数据中心化后协方差矩阵的**前 k 个特征向量**
 ## 为什么用 SVD 而不是直接特征分解？
 
 数学上等价：
-- 协方差矩阵 $C = \frac{1}{N-1} X_c^\top X_c$（$D \times D$）
+- 协方差矩阵 $C = \frac{1}{N-1} X\_c^\top X\_c$（$D \times D$）
 - 特征分解 $C = V \Lambda V^\top$
 
 但**数值上 SVD 更稳定**：

@@ -2,15 +2,15 @@
 
 ## 1. 数学推导
 
-线性回归模型：$\hat{y}_i = w^\top x_i + b$，目标最小化 MSE：
+线性回归模型：$\hat{y}\_i = w^\top x\_i + b$，目标最小化 MSE：
 
-$$L = \frac{1}{N}\sum_i (\hat{y}_i - y_i)^2$$
+$$L = \frac{1}{N}\sum\_i (\hat{y}\_i - y\_i)^2$$
 
-对 $w$ 求梯度（用链式法则，把误差记为 $e_i = \hat{y}_i - y_i$）：
+对 $w$ 求梯度（用链式法则，把误差记为 $e\_i = \hat{y}\_i - y\_i$）：
 
-$$\frac{\partial L}{\partial w} = \frac{2}{N}\sum_i e_i \cdot x_i = \frac{2}{N} X^\top e$$
+$$\frac{\partial L}{\partial w} = \frac{2}{N}\sum\_i e\_i \cdot x\_i = \frac{2}{N} X^\top e$$
 
-$$\frac{\partial L}{\partial b} = \frac{2}{N}\sum_i e_i$$
+$$\frac{\partial L}{\partial b} = \frac{2}{N}\sum\_i e\_i$$
 
 注意 **常数 2 不能省**，省掉等价于把学习率减半，对绝对数值有影响（判分会
 逐位比对）。

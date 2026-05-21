@@ -55,7 +55,7 @@ export async function fetchProblem(id: string): Promise<ProblemDetail> {
 }
 
 export async function fetchSolution(id: string): Promise<ProblemSolution> {
-  const r = await fetch(`${BASE}/problems/${id}/solution`)
+  const r = await fetch(`${BASE}/solution/${id}`)
   return r.json()
 }
 
