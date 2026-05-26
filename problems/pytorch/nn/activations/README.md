@@ -40,8 +40,26 @@ $$\text{GeGLU}(x, \text{gate}) = \text{GELU}(\text{gate}) \odot x$$
 
 这里用**精确版** GELU（不是 tanh 近似）。
 
+### 6. `sigmoid(x)`
+
+$$\sigma(x) = \frac{1}{1 + e^{-x}}$$
+
+要求**数值稳定**：当 $x$ 非常负时 $e^{-x}$ 会溢出。提示：对 $x \geq 0$
+和 $x < 0$ 分别处理（跟逻辑回归里的技巧一样）。
+
+### 7. `softmax(x, dim)`
+
+$$\text{softmax}(x\_i) = \frac{e^{x\_i - \max(x)}}{\sum\_j e^{x\_j - \max(x)}}$$
+
+沿指定 `dim` 做 softmax。**必须数值稳定**（先减 max 再 exp）。
+
+```python
+def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    ...
+```
+
 ## 说明
 
-- 输入是 `torch.float32`。**禁止用** `F.gelu` / `F.silu` / `F.glu` 等内置
-  函数，自己按公式实现。
+- 输入是 `torch.float32`。**禁止用** `F.gelu` / `F.silu` / `F.glu` /
+  `F.softmax` / `torch.sigmoid` 等内置函数，自己按公式实现。
 - 容差 `atol=1e-6`。

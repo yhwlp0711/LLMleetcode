@@ -147,4 +147,66 @@ TEST_CASES = [
         atol=1e-6,
         rtol=1e-6,
     ),
+    # --- Sigmoid ---
+    TestCase(
+        name="sigmoid / typical values",
+        runner=lambda m: _check_single(m.sigmoid, _REF.sigmoid, _typical((4, 8), 20)),
+        weight=1.0,
+        atol=1e-6,
+        rtol=1e-6,
+    ),
+    TestCase(
+        name="sigmoid / extreme values (stability)",
+        runner=lambda m: _check_single(m.sigmoid, _REF.sigmoid, _extreme()),
+        weight=1.0,
+        atol=1e-5,
+        rtol=1e-5,
+    ),
+    TestCase(
+        name="sigmoid / matches torch.sigmoid",
+        runner=lambda m: _check_against_torch_builtin(
+            m.sigmoid, torch.sigmoid, _typical((6, 8), 21)
+        ),
+        weight=1.0,
+    ),
+    # --- Softmax ---
+    TestCase(
+        name="softmax / dim=-1",
+        runner=lambda m: (
+            m.softmax(_typical((4, 8), 30), dim=-1),
+            _REF.softmax(_typical((4, 8), 30), dim=-1),
+        ),
+        weight=1.0,
+        atol=1e-6,
+        rtol=1e-6,
+    ),
+    TestCase(
+        name="softmax / dim=0",
+        runner=lambda m: (
+            m.softmax(_typical((4, 8), 31), dim=0),
+            _REF.softmax(_typical((4, 8), 31), dim=0),
+        ),
+        weight=1.0,
+        atol=1e-6,
+        rtol=1e-6,
+    ),
+    TestCase(
+        name="softmax / extreme values (stability)",
+        runner=lambda m: (
+            m.softmax(torch.tensor([[1000.0, 1.0, -1000.0]]), dim=-1),
+            _REF.softmax(torch.tensor([[1000.0, 1.0, -1000.0]]), dim=-1),
+        ),
+        weight=1.0,
+        atol=1e-6,
+        rtol=1e-6,
+    ),
+    TestCase(
+        name="softmax / matches F.softmax",
+        runner=lambda m: _check_against_torch_builtin(
+            lambda t: m.softmax(t, dim=-1),
+            lambda t: F.softmax(t, dim=-1),
+            _typical((6, 8), 32),
+        ),
+        weight=1.0,
+    ),
 ]
