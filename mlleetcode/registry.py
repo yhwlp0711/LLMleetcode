@@ -62,7 +62,7 @@ class Problem:
 
 def _make_problem(problem_dir: Path, root: Path) -> Problem:
     meta_path = problem_dir / "meta.yaml"
-    meta = yaml.safe_load(meta_path.read_text()) or {}
+    meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
 
     rel_parts = problem_dir.relative_to(root).parts
     slug = rel_parts[-1]

@@ -105,7 +105,7 @@ def render_problem_detail(problem: Problem) -> None:
         )
     )
     if problem.readme_path.exists():
-        console.print(Markdown(problem.readme_path.read_text()))
+        console.print(Markdown(problem.readme_path.read_text(encoding="utf-8")))
     else:
         console.print("[yellow]README.md not found for this problem.[/yellow]")
 
@@ -116,7 +116,7 @@ def render_problem_solution(problem: Problem) -> None:
     console.print(Panel.fit(header, border_style="cyan"))
 
     if problem.solution_md_path.exists():
-        console.print(Markdown(problem.solution_md_path.read_text()))
+        console.print(Markdown(problem.solution_md_path.read_text(encoding="utf-8")))
     else:
         console.print("[yellow](本题尚未提供 solution.md 中文解析)[/yellow]")
 
@@ -124,7 +124,7 @@ def render_problem_solution(problem: Problem) -> None:
         console.rule("[bold]solution.py[/bold]", style="dim")
         console.print(
             Syntax(
-                problem.solution_path.read_text(),
+                problem.solution_path.read_text(encoding="utf-8"),
                 "python",
                 theme="monokai",
                 line_numbers=True,
