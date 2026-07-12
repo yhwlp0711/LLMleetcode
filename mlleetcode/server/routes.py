@@ -96,6 +96,7 @@ def submit(req: SubmitRequest):
 
     with tempfile.NamedTemporaryFile(
         mode="w",
+        encoding="utf-8",
         suffix=".py",
         delete=False,
         dir=tempfile.gettempdir(),
