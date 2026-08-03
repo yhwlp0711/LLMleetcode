@@ -1,0 +1,6 @@
+title: "GRPO 损失（Group Relative Policy Optimization）"
+difficulty: medium
+framework: pytorch
+tags: [loss, rlhf, grpo, rl, llm]
+timeout: 5
+entrypoint: grpo_loss

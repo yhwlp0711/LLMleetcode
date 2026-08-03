@@ -1,0 +1,6 @@
+title: "BCE 损失（Binary Cross-Entropy with logits）"
+difficulty: easy
+framework: pytorch
+tags: [nn, loss, classification]
+timeout: 5
+entrypoint: bce_with_logits

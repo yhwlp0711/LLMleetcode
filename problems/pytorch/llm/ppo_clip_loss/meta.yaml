@@ -1,0 +1,6 @@
+title: "PPO 裁剪损失（Clipped Surrogate）"
+difficulty: medium
+framework: pytorch
+tags: [loss, rlhf, ppo, rl, llm]
+timeout: 5
+entrypoint: ppo_clip_loss

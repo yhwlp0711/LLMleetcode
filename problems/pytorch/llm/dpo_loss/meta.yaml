@@ -1,0 +1,6 @@
+title: "DPO 损失（Direct Preference Optimization）"
+difficulty: medium
+framework: pytorch
+tags: [loss, rlhf, alignment, dpo, llm]
+timeout: 5
+entrypoint: dpo_loss

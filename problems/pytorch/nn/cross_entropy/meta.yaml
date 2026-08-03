@@ -1,0 +1,6 @@
+title: "交叉熵损失（Cross-Entropy from logits）"
+difficulty: easy
+framework: pytorch
+tags: [nn, loss, classification]
+timeout: 5
+entrypoint: cross_entropy

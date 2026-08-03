@@ -5,7 +5,7 @@
 <p>
   <img src="https://img.shields.io/badge/python-%E2%89%A53.10-blue" alt="python">
   <img src="https://img.shields.io/badge/PyTorch-%E2%89%A52.0-ee4c2c" alt="pytorch">
-  <img src="https://img.shields.io/badge/题库-27_道-brightgreen" alt="problems">
+  <img src="https://img.shields.io/badge/题库-36_道-brightgreen" alt="problems">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
 </p>
 
@@ -61,11 +61,11 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | **NumPy 基础** | 广播 / argmax / 滑窗 / 手写 matmul |
 | **NumPy 经典 ML** | 线性 & 逻辑回归 / KMeans / KNN / PCA / AUC-ROC |
 | **PyTorch 基础** | tensor 操作 / autograd |
-| **PyTorch nn** | 激活函数（SiLU/GELU/SwiGLU）/ LayerNorm / RMSNorm |
-| **PyTorch LLM（核心）** | causal mask / 位置编码 / SDPA / MHA / GQA / KV Cache / RoPE / 采样 / Beam Search / SwiGLU FFN / Transformer Block |
+| **PyTorch nn** | 激活函数（SiLU/GELU）/ 门控激活（SwiGLU/GeGLU）/ 数值稳定 sigmoid & softmax / LayerNorm / RMSNorm / 交叉熵 & BCE & KL 散度 |
+| **PyTorch LLM（核心）** | causal mask / 位置编码 / SDPA / MHA / GQA / KV Cache / RoPE / 采样 / Greedy Decode / Beam Search / SwiGLU FFN / Transformer Block / DPO & PPO & GRPO loss |
 
 <details>
-<summary>展开完整题库（27 道）</summary>
+<summary>展开完整题库（36 道）</summary>
 
 | 题目 | 难度 | 考点 |
 |---|---|---|
@@ -82,9 +82,14 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | `pytorch.basics.tensor_ops` | easy | flatten / softmax / pairwise dist / top-k |
 | `pytorch.basics.autograd_basics` | easy | `.backward()`、数值 Jacobian、SGD |
 | `pytorch.ml.linear_regression` | easy | autograd 训练循环 |
-| `pytorch.nn.activations` | easy | SiLU、GELU、SwiGLU、GeGLU |
+| `pytorch.nn.activations` | easy | SiLU、GELU-exact、GELU-tanh |
+| `pytorch.nn.gated_activations` | easy | SwiGLU、GeGLU（门控） |
+| `pytorch.nn.numeric_activations` | easy | 数值稳定 sigmoid / softmax |
 | `pytorch.nn.layernorm` | medium | LayerNorm（weight + bias） |
 | `pytorch.nn.rmsnorm` | easy | RMSNorm（LLaMA 风格） |
+| `pytorch.nn.cross_entropy` | easy | 稳定 CE from logits + ignore_index |
+| `pytorch.nn.bce_with_logits` | easy | 稳定 BCE with logits |
+| `pytorch.nn.kl_divergence` | easy | forward KL from logits |
 | `pytorch.llm.causal_mask` | easy | 因果 + padding mask 构造 |
 | `pytorch.llm.sinusoidal_pe` | easy | 经典 sin/cos 位置编码 |
 | `pytorch.llm.scaled_dot_product_attention` | easy | 注意力核心算子 |
@@ -93,9 +98,13 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | `pytorch.llm.kv_cache` | medium | 带 KV Cache 的 SDPA |
 | `pytorch.llm.rope` | medium | RoPE：建表 + 旋转 |
 | `pytorch.llm.top_k_top_p_sampling` | medium | 温度 + top-k + nucleus |
-| `pytorch.llm.greedy_beam_search` | medium | Greedy + Beam Search |
+| `pytorch.llm.greedy_decode` | easy | Greedy 解码 |
+| `pytorch.llm.beam_search` | medium | Beam Search + 长度归一化 |
 | `pytorch.llm.swiglu_ffn` | medium | LLaMA 风格 FFN |
 | `pytorch.llm.transformer_block` | hard | 完整 LLaMA block（集成题） |
+| `pytorch.llm.dpo_loss` | medium | DPO 偏好损失（logsigmoid） |
+| `pytorch.llm.ppo_clip_loss` | medium | PPO 裁剪代理损失 |
+| `pytorch.llm.grpo_loss` | medium | GRPO 组内优势 + PPO 裁剪 |
 
 </details>
 

@@ -1,0 +1,6 @@
+title: "KL 散度（KL Divergence from logits）"
+difficulty: easy
+framework: pytorch
+tags: [nn, loss, distillation, llm]
+timeout: 5
+entrypoint: kl_divergence
