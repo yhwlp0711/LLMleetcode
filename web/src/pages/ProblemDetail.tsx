@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import type { Components } from 'react-markdown'
 import remarkMath from 'remark-math'
 import remarkGfm from 'remark-gfm'
 import rehypeKatex from 'rehype-katex'
 import Editor from '@monaco-editor/react'
-import { fetchProblem, fetchSolution, submitCode } from '../api/client'
+import { fetchProblem, fetchProblems, fetchSolution, submitCode } from '../api/client'
 import type { ProblemDetail as PD, JudgeResult, ProblemSolution } from '../api/client'
 
 export default function ProblemDetail() {
@@ -17,6 +18,7 @@ export default function ProblemDetail() {
   const [solution, setSolution] = useState<ProblemSolution | null>(null)
   const [showSolution, setShowSolution] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'result' | 'solution'>('description')
+  const [problemIds, setProblemIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!id) return
@@ -26,6 +28,26 @@ export default function ProblemDetail() {
       setCode(saved ?? p.starter)
     })
   }, [id])
+
+  useEffect(() => {
+    fetchProblems().then(ps => setProblemIds(new Set(ps.map(p => p.id))))
+  }, [])
+
+  // Turn inline `<problem_id>` code spans into clickable links to that problem.
+  const mdComponents = useMemo<Components>(() => ({
+    code({ className, children, ...props }) {
+      const text = String(children)
+      const isBlock = /language-/.test(className || '') || text.includes('\n')
+      if (!isBlock && problemIds.has(text) && text !== problem?.id) {
+        return (
+          <Link to={`/problem/${text}`} className="text-cyan-400 hover:underline">
+            <code className={className} {...props}>{children}</code>
+          </Link>
+        )
+      }
+      return <code className={className} {...props}>{children}</code>
+    },
+  }), [problemIds, problem?.id])
 
   const handleSubmit = async () => {
     if (!problem) return
@@ -78,7 +100,7 @@ export default function ProblemDetail() {
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">{problem.framework}</span>
                 {problem.tags.map(t => <span key={t} className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400">{t}</span>)}
               </div>
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={mdComponents}>
                 {problem.readme}
               </ReactMarkdown>
             </div>
@@ -88,7 +110,7 @@ export default function ProblemDetail() {
           {activeTab === 'solution' && solution && (
             <div className="markdown-body">
               <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}
-                components={{ pre: CopyablePre }}>
+                components={{ ...mdComponents, pre: CopyablePre }}>
                 {solution.solution_md}
               </ReactMarkdown>
               {solution.solution_py && (
