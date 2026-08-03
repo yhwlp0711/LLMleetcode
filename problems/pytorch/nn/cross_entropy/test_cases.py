@@ -68,7 +68,7 @@ TEST_CASES = [
     ),
     TestCase(
         name="ce / large logits (stability)",
-        runner=lambda m: _run(m, _logits(6, 4, 4, scale=100.0), _target(6, 4, 5)),
+        runner=lambda m: _run(m, _logits(6, 4, 4, scale=300.0), _target(6, 4, 5)),
         weight=2.0,
         atol=1e-6,
         rtol=1e-6,

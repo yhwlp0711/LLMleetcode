@@ -67,7 +67,7 @@ TEST_CASES = [
     ),
     TestCase(
         name="bce / extreme logits (stability)",
-        runner=lambda m: _run(m, _logits((6,), 6, scale=100.0), _target((6,), 7)),
+        runner=lambda m: _run(m, _logits((6,), 6, scale=300.0), _target((6,), 7)),
         weight=2.0,
         atol=1e-6,
         rtol=1e-6,

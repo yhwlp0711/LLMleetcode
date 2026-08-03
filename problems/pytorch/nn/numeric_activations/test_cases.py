@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as F
 
 from mlleetcode.judge import TestCase
-from mlleetcode.utils.compare import compare_numeric
+from mlleetcode.utils.compare import CompareResult, compare_numeric
 from mlleetcode.utils.sandbox import load_module_from_path
 
 _REF = load_module_from_path(
@@ -29,8 +29,9 @@ def _typical(shape, seed: int):
 
 
 def _extreme():
-    # Mix of large positive / large negative / zero / typical values.
-    return torch.tensor([-50.0, -5.0, -1.0, 0.0, 1.0, 5.0, 50.0])
+    # Include magnitudes large enough to overflow a naive 1/(1+exp(-x)) in fp32
+    # (exp(1000) = inf), so unstable implementations produce nan/inf and fail.
+    return torch.tensor([-1000.0, -100.0, -50.0, -1.0, 0.0, 1.0, 50.0, 100.0, 1000.0])
 
 
 def _check_single(user_fn, ref_fn, x):
@@ -39,6 +40,18 @@ def _check_single(user_fn, ref_fn, x):
 
 def _check_against_torch_builtin(user_fn, builtin, x):
     return compare_numeric(user_fn(x.clone()), builtin(x.clone()), atol=1e-6, rtol=1e-6)
+
+
+def _check_sigmoid_finite(user_module) -> CompareResult:
+    """A stable sigmoid must stay finite even for very large-magnitude inputs;
+    a naive 1/(1+exp(-x)) overflows to nan/inf here."""
+    x = torch.tensor([-1000.0, -300.0, 0.0, 300.0, 1000.0])
+    out = user_module.sigmoid(x.clone())
+    if not torch.isfinite(out).all():
+        return CompareResult(
+            passed=False, reason="sigmoid produced nan/inf on large inputs"
+        )
+    return CompareResult(passed=True)
 
 
 TEST_CASES = [
@@ -56,6 +69,11 @@ TEST_CASES = [
         weight=2.0,
         atol=1e-5,
         rtol=1e-5,
+    ),
+    TestCase(
+        name="sigmoid / stays finite on huge inputs",
+        runner=_check_sigmoid_finite,
+        weight=2.0,
     ),
     TestCase(
         name="sigmoid / matches torch.sigmoid",

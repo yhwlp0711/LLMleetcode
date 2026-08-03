@@ -74,7 +74,7 @@ TEST_CASES = [
     TestCase(
         name="kl / large logits (stability)",
         runner=lambda m: _run(
-            m, _logits(6, 5, 4, scale=80.0), _logits(6, 5, 5, scale=80.0)
+            m, _logits(6, 5, 4, scale=300.0), _logits(6, 5, 5, scale=300.0)
         ),
         weight=2.0,
         atol=1e-6,
