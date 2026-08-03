@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchProblems } from '../api/client'
-import type { ProblemMeta } from '../api/client'
+import { fetchProblems, fetchStatus } from '../api/client'
+import type { ProblemMeta, StatusEntry } from '../api/client'
 
 const diffColor: Record<string, string> = {
   easy: 'text-green-400',
@@ -17,8 +17,18 @@ const fwColor: Record<string, string> = {
 export default function ProblemList() {
   const [problems, setProblems] = useState<ProblemMeta[]>([])
   const [filter, setFilter] = useState('')
+  const [status, setStatus] = useState<Record<string, StatusEntry>>({})
+  const [progress, setProgress] = useState<{ total: number; attempted: number; perfect: number } | null>(null)
 
   useEffect(() => { fetchProblems().then(setProblems) }, [])
+  useEffect(() => {
+    fetchStatus().then(s => {
+      setProgress({ total: s.total, attempted: s.attempted, perfect: s.perfect })
+      const map: Record<string, StatusEntry> = {}
+      for (const e of s.entries) map[e.problem_id] = e
+      setStatus(map)
+    })
+  }, [])
 
   const grouped = problems.reduce((acc, p) => {
     ;(acc[p.category] ||= []).push(p)
@@ -33,6 +43,22 @@ export default function ProblemList() {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
+      {progress && (
+        <div className="mb-4 flex items-center gap-4 text-sm text-slate-400">
+          <span>
+            已通过 <span className="text-green-400 font-semibold">{progress.perfect}</span> / {progress.total}
+          </span>
+          <span>
+            已尝试 <span className="text-cyan-400 font-semibold">{progress.attempted}</span>
+          </span>
+          <div className="flex-1 h-2 rounded bg-slate-800 overflow-hidden">
+            <div
+              className="h-full bg-green-500 transition-all"
+              style={{ width: `${progress.total ? (progress.perfect / progress.total) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
       <input
         className="w-full mb-6 px-4 py-2 rounded bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
         placeholder="搜索题目..."
@@ -43,12 +69,25 @@ export default function ProblemList() {
         <div key={cat} className="mb-6">
           <h2 className="text-lg font-semibold text-slate-300 mb-2 border-b border-slate-700 pb-1">{cat}</h2>
           <div className="space-y-1">
-            {grouped[cat].filter(p => !filter || p.id.includes(filter) || p.title.includes(filter) || cat.includes(filter)).map(p => (
+            {grouped[cat].filter(p => !filter || p.id.includes(filter) || p.title.includes(filter) || cat.includes(filter)).map(p => {
+              const st = status[p.id]
+              const solved = st && st.best_score >= 100
+              const attempted = st && st.attempts > 0
+              return (
               <Link
                 key={p.id}
                 to={`/problem/${p.id}`}
                 className="flex items-center gap-3 px-3 py-2 rounded hover:bg-slate-800 transition"
               >
+                <span className="w-4 text-center" title={solved ? '已通过' : attempted ? `最佳 ${Math.round(st!.best_score)} 分` : '未尝试'}>
+                  {solved ? (
+                    <span className="text-green-400">✓</span>
+                  ) : attempted ? (
+                    <span className="text-yellow-400">•</span>
+                  ) : (
+                    <span className="text-slate-700">○</span>
+                  )}
+                </span>
                 <span className={`text-xs font-medium ${diffColor[p.difficulty] || 'text-slate-400'}`}>
                   {p.difficulty}
                 </span>
@@ -56,9 +95,13 @@ export default function ProblemList() {
                   {p.framework}
                 </span>
                 <span className="flex-1 text-slate-200">{p.title}</span>
+                {attempted && !solved && (
+                  <span className="text-xs text-yellow-500">{Math.round(st!.best_score)}分</span>
+                )}
                 <span className="text-xs text-slate-500">{p.id}</span>
               </Link>
-            ))}
+              )
+            })}
           </div>
         </div>
       ))}

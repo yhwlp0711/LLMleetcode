@@ -44,6 +44,20 @@ export interface ProblemSolution {
   solution_py: string
 }
 
+export interface StatusEntry {
+  problem_id: string
+  best_score: number
+  attempts: number
+  last_attempt: string
+}
+
+export interface Progress {
+  total: number
+  attempted: number
+  perfect: number
+  entries: StatusEntry[]
+}
+
 export async function fetchProblems(): Promise<ProblemMeta[]> {
   const r = await fetch(`${BASE}/problems`)
   return r.json()
@@ -65,5 +79,10 @@ export async function submitCode(problem_id: string, code: string): Promise<Judg
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ problem_id, code }),
   })
+  return r.json()
+}
+
+export async function fetchStatus(): Promise<Progress> {
+  const r = await fetch(`${BASE}/status`)
   return r.json()
 }
