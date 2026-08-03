@@ -16,10 +16,14 @@
 ```bash
 git clone https://github.com/yhwlp0711/LLMleetcode.git
 cd LLMleetcode
+python -m pip install -U pip   # 确保 pip 够新（editable 安装需 pip ≥ 21.3）
 pip install -e ".[web]"     # 安装核心 + Web UI 依赖（推荐虚拟环境）
 
 mlleetcode ui               # 启动 Web UI，自动打开 http://localhost:8000
 ```
+
+> 请在 clone 出来的项目目录里安装运行（`pip install -e` editable 模式）；
+> 题库和前端页面都随源码目录一起工作。
 
 想用命令行：
 
