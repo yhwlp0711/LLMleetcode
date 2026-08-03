@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
@@ -285,15 +285,52 @@ function findApiKey(text: string): string | undefined {
 }
 
 function ApiTooltipCode({ doc, className, children, ...props }: { doc: ApiDoc; className?: string; children?: React.ReactNode } & React.HTMLAttributes<HTMLElement>) {
+  const ref = useRef<HTMLElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number; placement: 'top' | 'bottom' } | null>(null)
+
+  const show = () => {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const W = 288 // w-72
+    const margin = 8
+    // Horizontal: center on the code, then clamp into the viewport.
+    let left = r.left + r.width / 2 - W / 2
+    left = Math.max(margin, Math.min(left, window.innerWidth - W - margin))
+    // Vertical: prefer above; if not enough room, place below.
+    const placement: 'top' | 'bottom' = r.top > 220 ? 'top' : 'bottom'
+    const top = placement === 'top' ? r.top - margin : r.bottom + margin
+    setPos({ left, top, placement })
+  }
+  const hide = () => setPos(null)
+
   return (
-    <span className="relative group/api inline-block">
-      <code className={`${className || ''} border-b border-dashed border-cyan-700 cursor-help`} {...props}>{children}</code>
-      <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 rounded-lg bg-slate-800 border border-slate-600 text-xs text-slate-200 shadow-xl opacity-0 invisible group-hover/api:opacity-100 group-hover/api:visible transition pointer-events-none">
-        <span className="block font-mono text-cyan-300 mb-1">{doc.sig}</span>
-        <span className="block text-slate-300 mb-1">{doc.desc}</span>
-        <span className="block text-slate-400"><b className="text-slate-300">输入：</b>{doc.inputs}</span>
-        <span className="block text-slate-400"><b className="text-slate-300">输出：</b>{doc.outputs}</span>
-      </span>
-    </span>
+    <>
+      <code
+        ref={ref as React.RefObject<HTMLElement>}
+        className={`${className || ''} border-b border-dashed border-cyan-700 cursor-help`}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        {...props}
+      >
+        {children}
+      </code>
+      {pos && (
+        <span
+          className="fixed z-50 w-72 p-3 rounded-lg bg-slate-800 border border-slate-600 text-xs text-slate-200 shadow-xl pointer-events-none"
+          style={{
+            left: pos.left,
+            top: pos.top,
+            transform: pos.placement === 'top' ? 'translateY(-100%)' : 'none',
+          }}
+        >
+          <span className="block font-mono text-cyan-300 mb-1">{doc.sig}</span>
+          <span className="block text-slate-300 mb-1">{doc.desc}</span>
+          <span className="block text-slate-400 mb-1"><b className="text-slate-300">操作：</b>{doc.op}</span>
+          <span className="block text-slate-400"><b className="text-slate-300">输入：</b>{doc.inputs}</span>
+          <span className="block text-slate-400"><b className="text-slate-300">输出：</b>{doc.outputs}</span>
+        </span>
+      )}
+    </>
   )
 }
