@@ -5,7 +5,7 @@
 <p>
   <img src="https://img.shields.io/badge/python-%E2%89%A53.10-blue" alt="python">
   <img src="https://img.shields.io/badge/PyTorch-%E2%89%A52.0-ee4c2c" alt="pytorch">
-  <img src="https://img.shields.io/badge/题库-36_道-brightgreen" alt="problems">
+  <img src="https://img.shields.io/badge/题库-37_道-brightgreen" alt="problems">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="license">
 </p>
 
@@ -62,10 +62,10 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | **NumPy 经典 ML** | 线性 & 逻辑回归 / KMeans / KNN / PCA / AUC-ROC |
 | **PyTorch 基础** | tensor 操作 / autograd |
 | **PyTorch nn** | 激活函数（SiLU/GELU）/ 门控激活（SwiGLU/GeGLU）/ 数值稳定 sigmoid & softmax / LayerNorm / RMSNorm / 交叉熵 & BCE & KL 散度 |
-| **PyTorch LLM（核心）** | causal mask / 位置编码 / SDPA / MHA / GQA / KV Cache / RoPE / 采样 / Greedy Decode / Beam Search / SwiGLU FFN / Transformer Block / DPO & PPO & GRPO loss |
+| **PyTorch LLM（核心）** | causal mask / 位置编码 / SDPA / MHA / GQA / KV Cache / RoPE / 采样 / Greedy Decode / Beam Search / SwiGLU FFN / Transformer Block / DPO & PPO & GRPO loss / KL 惩罚估计器 |
 
 <details>
-<summary>展开完整题库（36 道）</summary>
+<summary>展开完整题库（37 道）</summary>
 
 | 题目 | 难度 | 考点 |
 |---|---|---|
@@ -103,8 +103,9 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | `pytorch.llm.swiglu_ffn` | medium | LLaMA 风格 FFN |
 | `pytorch.llm.transformer_block` | hard | 完整 LLaMA block（集成题） |
 | `pytorch.llm.dpo_loss` | medium | DPO 偏好损失（logsigmoid） |
-| `pytorch.llm.ppo_clip_loss` | hard | GAE 优势 + PPO 裁剪代理损失 |
+| `pytorch.llm.ppo_clip_loss` | hard | KL 惩罚 + GAE 优势 + PPO 裁剪损失 |
 | `pytorch.llm.grpo_loss` | medium | GRPO 组内优势 + PPO 裁剪 |
+| `pytorch.llm.kl_penalty_estimators` | medium | KL 估计器 k1 / k2 / k3 |
 
 </details>
 

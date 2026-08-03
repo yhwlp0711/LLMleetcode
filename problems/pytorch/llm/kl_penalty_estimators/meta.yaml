@@ -1,0 +1,6 @@
+title: "KL 惩罚估计器（k1 / k2 / k3）"
+difficulty: medium
+framework: pytorch
+tags: [loss, rlhf, kl, rl, llm]
+timeout: 5
+entrypoint: multiple

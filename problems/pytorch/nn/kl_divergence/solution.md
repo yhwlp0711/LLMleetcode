@@ -51,3 +51,10 @@ KL 里有 $\log p_c$ 和 $\log q_c$。直接 `p * log(p/q)` 在 `q_c` 很小时�
 - **RLHF / PPO**：在 reward 里加 `-β·KL(π‖π_ref)` 惩罚，防止 policy 跑偏
 - **CE 与 KL**：对固定的真实分布 P，`CE(P,Q) = H(P) + KL(P‖Q)`，
   最小化 CE 等价于最小化 KL
+
+## 解析 KL vs 蒙特卡洛估计
+
+本题算的是**有完整分布**时的精确 KL（`Σ p·(log p−log q)`）。但在 RL/RLHF 里
+分布是采样出来的 token，拿不到完整分布，只有 `logπ`、`logπ_ref` 两个标量，
+此时用**单样本估计器** k1/k2/k3（见 `pytorch.llm.kl_penalty_estimators`）。
+两者是「精确值」与「MC 估计」的关系。

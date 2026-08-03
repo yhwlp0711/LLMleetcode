@@ -1,8 +1,23 @@
-# 解题思路：PPO 损失（GAE + Clipped Surrogate）
+# 解题思路：PPO 损失（KL 惩罚 + GAE + Clipped Surrogate）
 
-## 两段结构
+## 三段结构
 
-PPO 的 policy loss = 「GAE 算优势」+「裁剪代理目标」。本题把两段合到一个函数里。
+RLHF 版 PPO 的 policy loss = 「KL 惩罚并入 reward」+「GAE 算优势」+「裁剪代理目标」。
+
+## 步骤 0：KL 惩罚并入 reward
+
+RLHF 里要约束 policy 不跑离参考模型太远，做法是把 `−β·KL(π‖π_ref)` 逐 token
+加到 reward。KL 用 **k3 估计器**（无偏 + 低方差 + 恒正，见
+`pytorch.llm.kl_penalty_estimators`）：
+
+```python
+logr = logp_ref - logp
+kl = torch.exp(logr) - 1.0 - logr        # k3
+r = rewards - kl_coef * kl               # 带惩罚的 reward，用它走 GAE
+```
+
+**注意**：KL 惩罚进的是 **reward**（GAE 之前），不是直接进 loss。这是 RLHF
+PPO 的标准做法（InstructGPT）。
 
 ## 步骤 1：GAE
 
@@ -19,7 +34,7 @@ adv = torch.zeros(T)
 gae = torch.zeros(())
 for t in range(T - 1, -1, -1):
     nonterminal = 1.0 - dones[t]
-    delta = rewards[t] + gamma * values[t + 1] * nonterminal - values[t]
+    delta = r[t] + gamma * values[t + 1] * nonterminal - values[t]
     gae = delta + gamma * lam * nonterminal * gae
     adv[t] = gae
 ```
@@ -56,7 +71,9 @@ loss = -torch.min(unclipped, clipped).mean()
 ## 边界检查
 
 - **所有步终止**（`dones` 全 1）：`nonterminal=0`，递推项和 bootstrap 都被切，
-  `A_t = r_t - V(s_t)`。此时若 `logratio=0`，`loss = -mean(r - V[:T])`。
+  `A_t = r'_t - V(s_t)`（注意用带 KL 惩罚的 `r'`）。此时若 `logratio=0`，
+  `loss = -mean(r' - V[:T])`。
+- **`kl_coef=0`**：退化为无 KL 惩罚的普通 GAE-PPO。
 - **`logratio=0`**（`ratio=1`，还没更新）：`loss = -mean(A)`。
 
 ## 为什么 advantage 通常 detach / 不参与 policy 梯度
