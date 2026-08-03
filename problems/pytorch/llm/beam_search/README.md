@@ -1,25 +1,11 @@
-# Greedy Decode 与 Beam Search
+# Beam Search
 
-实现两种经典 autoregressive 解码算法。**「模型」抽象成一个函数** —— 给定
-input_ids 返回下一步 logits，无需真正加载 LM。
+实现 beam search 解码。**「模型」抽象成一个函数** —— 给定 input_ids 返回下一步
+logits，无需真正加载 LM。
+
+> 更简单的贪心解码见 `pytorch.llm.greedy_decode`（beam_size=1 的特例）。
 
 ## 待实现函数
-
-### 1. `greedy_decode`
-
-```python
-def greedy_decode(
-    model_fn: Callable[[torch.Tensor], torch.Tensor],   # ids (1, T) -> logits (1, V)
-    input_ids: torch.Tensor,    # (1, T_init)
-    max_len: int,               # 最大生成长度（不含 prompt）
-    eos_id: int,
-) -> torch.Tensor:              # (1, T_init + n_generated)
-```
-
-每步取 `argmax(logits)`，append 到序列；遇到 `eos_id` 立即停止；最长生成
-`max_len` 个新 token。
-
-### 2. `beam_search`
 
 ```python
 def beam_search(

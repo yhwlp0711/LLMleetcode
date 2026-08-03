@@ -1,6 +1,6 @@
-title: "Greedy Decode & Beam Search"
+title: "Beam Search"
 difficulty: medium
 framework: pytorch
 tags: [decoding, beam-search, llm]
 timeout: 5
-entrypoint: multiple
+entrypoint: beam_search

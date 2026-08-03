@@ -1,4 +1,4 @@
-# 解题思路：Greedy Decode 与 Beam Search
+# 解题思路：Beam Search
 
 ## 抽象 LM 的设计思路
 
@@ -9,31 +9,10 @@ def model_fn(input_ids: Tensor) -> Tensor:
     """ids (B, T) -> next-token logits (B, V)"""
 ```
 
-判分时传入一个**确定性查表函数**（logits 只依赖最后一个 token），这样
-:
+判分时传入一个**确定性查表函数**（logits 只依赖最后一个 token），这样：
 - 运行快（一次矩阵索引）
 - 完全可复现（无随机）
 - 但足够测出解码逻辑的对错
-
-## Greedy Decode
-
-最简单的解码：每步取最大概率的 token。
-
-```python
-def greedy_decode(model_fn, input_ids, max_len, eos_id):
-    seq = input_ids.clone()
-    for _ in range(max_len):
-        logits = model_fn(seq)                              # (1, V)
-        next_token = logits.argmax(dim=-1, keepdim=True)    # (1, 1)
-        seq = torch.cat([seq, next_token], dim=1)
-        if int(next_token.item()) == eos_id:
-            break
-    return seq
-```
-
-**两个边界**：
-1. **遇到 EOS 立即停**（不再 append 后续 token）
-2. **最长 `max_len`**（防止无限循环）
 
 ## Beam Search
 
@@ -108,22 +87,12 @@ best = norm_scores.argmax()
 
 ## 易错点
 
-### 1. `next_token.item()` 比较时类型
-
-`argmax` 返回 `int64` tensor，`item()` 转 Python int。`eos_id` 也是 Python
-int。两者用 `==` 比较是合法的（PyTorch 自动转换），但**保险写法**是显式
-转 int：
-
-```python
-if int(next_token.item()) == eos_id:
-```
-
-### 2. 初始 beam 也可能是 eos
+### 1. 初始 beam 也可能是 eos
 
 如果第一步取的 top-k 里有 eos token，对应 beam 一开始就是 finished。要在
 初始化时也更新 `finished` mask，不然下一步它还会被错误扩展。
 
-### 3. `lengths` 的累加规则
+### 2. `lengths` 的累加规则
 
 只有「这一步实际增加了新 token」（即 beam 没 finished）的才 `length += 1`。
 已 finished 的 beam length 不变。

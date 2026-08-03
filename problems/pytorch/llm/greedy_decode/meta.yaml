@@ -1,0 +1,6 @@
+title: "Greedy Decode"
+difficulty: easy
+framework: pytorch
+tags: [decoding, llm]
+timeout: 5
+entrypoint: greedy_decode
