@@ -12,8 +12,5 @@ def filter_logits(
     top_k: int = 0,
     top_p: float = 1.0,
 ) -> torch.Tensor:
-    # TODO:
-    # 1. 温度缩放: logits = logits / temperature
-    # 2. top-k: 找到第 k 大的阈值，小于阈值的全置 -inf
-    # 3. top-p: 排序 → cumsum → 找首个超过 top_p 的位置 → 屏蔽后面
+    # TODO: 依次做温度缩放、top-k 过滤、top-p（nucleus）过滤，被过滤的 logits 置 -inf。
     raise NotImplementedError

@@ -19,9 +19,5 @@ def sdpa(
         v: (B, H, T_k, D_v)
         mask: 可广播到 (B, H, T_q, T_k)；True = 保留，False = 屏蔽。
     """
-    # TODO:
-    # 1. scores = q @ k.transpose(-2, -1) / sqrt(D)
-    # 2. 如果 mask 非 None：scores.masked_fill_(~mask, -inf)
-    # 3. attn = softmax(scores, dim=-1)
-    # 4. return attn @ v
+    # TODO: 实现缩放点积注意力：打分（含 1/sqrt(D) 缩放）→ 应用 mask → softmax → 加权求和 v。
     raise NotImplementedError

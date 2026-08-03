@@ -13,10 +13,5 @@ def greedy_decode(
     max_len: int,
     eos_id: int,
 ) -> torch.Tensor:
-    # TODO:
-    # for _ in range(max_len):
-    #     logits = model_fn(seq)               # (1, V)
-    #     next_token = logits.argmax(dim=-1, keepdim=True)   # (1, 1)
-    #     seq = cat([seq, next_token], dim=1)
-    #     if next_token.item() == eos_id: break
+    # TODO: 每步取 argmax 作为下一个 token，追加到序列；遇到 eos 或达到 max_len 停止。
     raise NotImplementedError

@@ -9,15 +9,15 @@ import torch
 
 
 def kl_k1(logp: torch.Tensor, logp_ref: torch.Tensor) -> torch.Tensor:
-    # TODO: k1 = -logr = logp - logp_ref
+    # TODO: 实现 k1 估计器（见 README）。
     raise NotImplementedError
 
 
 def kl_k2(logp: torch.Tensor, logp_ref: torch.Tensor) -> torch.Tensor:
-    # TODO: k2 = 0.5 * logr**2
+    # TODO: 实现 k2 估计器（见 README）。
     raise NotImplementedError
 
 
 def kl_k3(logp: torch.Tensor, logp_ref: torch.Tensor) -> torch.Tensor:
-    # TODO: k3 = (exp(logr) - 1) - logr
+    # TODO: 实现 k3 估计器（见 README）。
     raise NotImplementedError

@@ -15,10 +15,6 @@ def dpo_loss(
     ref_rejected_logps: torch.Tensor,
     beta: float = 0.1,
 ) -> torch.Tensor:
-    # TODO:
-    #   delta_chosen   = policy_chosen_logps   - ref_chosen_logps
-    #   delta_rejected = policy_rejected_logps - ref_rejected_logps
-    #   logits = beta * (delta_chosen - delta_rejected)
-    #   loss = -logsigmoid(logits)            # 用 logsigmoid，别用 log(sigmoid(...))
-    #   return loss.mean()
+    # TODO: 按 README 的 DPO 公式实现 loss（policy 相对 reference 的 log-ratio 差 → logsigmoid → 取负、平均）。
+    # 数值稳定：用 logsigmoid，别写成 log(sigmoid(...))。
     raise NotImplementedError

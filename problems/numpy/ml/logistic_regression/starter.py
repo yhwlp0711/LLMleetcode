@@ -18,12 +18,7 @@ def fit_predict_proba(
     b = 0.0
 
     for _ in range(epochs):
-        # TODO:
-        # 1. z = X_train @ w + b
-        # 2. p = sigmoid(z)  （用数值稳定的写法）
-        # 3. grad_w = (1/N) * X_train.T @ (p - y_train)
-        # 4. grad_b = (1/N) * (p - y_train).sum()
-        # 5. w -= lr * grad_w ; b -= lr * grad_b
+        # TODO: 一步批量梯度下降——sigmoid 前向（数值稳定）、算梯度、更新 w 和 b
         raise NotImplementedError
 
     # TODO: 在 X_test 上预测概率

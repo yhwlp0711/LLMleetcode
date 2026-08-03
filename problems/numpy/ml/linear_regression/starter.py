@@ -19,12 +19,7 @@ def fit_predict(
     b = 0.0
 
     for _ in range(epochs):
-        # TODO: 实现前向、梯度、参数更新
-        # 1. y_hat = X_train @ w + b
-        # 2. error = y_hat - y_train
-        # 3. grad_w = (2 / N) * X_train.T @ error
-        # 4. grad_b = (2 / N) * error.sum()
-        # 5. w -= lr * grad_w ; b -= lr * grad_b
+        # TODO: 一步批量梯度下降——前向预测、算梯度、更新 w 和 b
         raise NotImplementedError("请实现训练循环")
 
     # TODO: 用训练好的 (w, b) 在 X_test 上预测

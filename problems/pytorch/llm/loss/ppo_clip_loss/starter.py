@@ -20,14 +20,6 @@ def ppo_clip_loss(
     clip_eps: float = 0.2,
     kl_coef: float = 0.1,
 ) -> torch.Tensor:
-    # TODO:
-    # 步骤 1 —— KL 惩罚并入 reward（k3 估计器，logr = logp_ref - logp）:
-    #   kl = exp(logr) - 1 - logr
-    #   r' = rewards - kl_coef * kl
-    # 步骤 2 —— GAE（用 r'，从后往前）:
-    #   delta_t = r'[t] + gamma * values[t+1] * (1 - dones[t]) - values[t]
-    #   adv[t]  = delta_t + gamma * lam * (1 - dones[t]) * adv[t+1]   # adv[T]=0
-    # 步骤 3 —— 裁剪损失:
-    #   ratio = exp(logratio)
-    #   loss  = -min(ratio * adv, clamp(ratio, 1-eps, 1+eps) * adv).mean()
+    # TODO: 按 README 的三步实现——把 KL 惩罚并入 reward、用 GAE 估计优势、再套 PPO 裁剪目标。
+    # 注意 GAE 从后往前递推，values 长度是 T+1（含 bootstrap），dones 切断跨 episode 传播。
     raise NotImplementedError

@@ -9,10 +9,10 @@ import torch
 
 
 def sigmoid(x: torch.Tensor) -> torch.Tensor:
-    # TODO: 1 / (1 + exp(-x))，要求数值稳定（对 x>=0 / x<0 分别处理）
+    # TODO: 数值稳定的 sigmoid（对 x≥0 / x<0 分别处理，避免 exp 溢出）。
     raise NotImplementedError
 
 
 def softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
-    # TODO: 数值稳定的 softmax（先减 max 再 exp）
+    # TODO: 数值稳定的 softmax（沿 dim）。
     raise NotImplementedError

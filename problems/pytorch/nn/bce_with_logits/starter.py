@@ -13,7 +13,5 @@ def bce_with_logits(
     logits: torch.Tensor,
     target: torch.Tensor,
 ) -> torch.Tensor:
-    # TODO: 用稳定形式
-    #   loss = max(z, 0) - z * y + log(1 + exp(-|z|))
-    # 再对所有元素求平均。
+    # TODO: 从 logits 计算数值稳定的二分类交叉熵，对所有元素求平均（见 README 的稳定公式）。
     raise NotImplementedError

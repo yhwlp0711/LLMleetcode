@@ -12,10 +12,6 @@ def sdpa_with_kv_cache(
     k_cache: torch.Tensor | None,
     v_cache: torch.Tensor | None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    # TODO:
-    # 1. 拼接 cache：new_k_cache = cat([k_cache, k_new], dim=-2) （cache 为 None 时直接用 k_new）
-    # 2. 同理拼 v
-    # 3. SDPA: scores = q_new @ new_k.transpose(-2,-1) / sqrt(D)
-    #          attn = softmax(scores, dim=-1); out = attn @ new_v
-    # 4. return out, new_k_cache, new_v_cache
+    # TODO: 把新的 k/v 拼接到历史 cache 后面，再用 q_new 对完整 k/v 做 SDPA。
+    # 返回 (输出, 更新后的 k_cache, 更新后的 v_cache)；cache 为 None 表示首步。
     raise NotImplementedError

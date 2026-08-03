@@ -9,15 +9,15 @@ import torch
 
 
 def silu(x: torch.Tensor) -> torch.Tensor:
-    # TODO: x * sigmoid(x)
+    # TODO: 实现 SiLU（见 README）。
     raise NotImplementedError
 
 
 def gelu_exact(x: torch.Tensor) -> torch.Tensor:
-    # TODO: 0.5 * x * (1 + erf(x / sqrt(2)))
+    # TODO: 实现精确版 GELU（用 erf，见 README）。
     raise NotImplementedError
 
 
 def gelu_tanh(x: torch.Tensor) -> torch.Tensor:
-    # TODO: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+    # TODO: 实现 GELU 的 tanh 近似（见 README）。
     raise NotImplementedError

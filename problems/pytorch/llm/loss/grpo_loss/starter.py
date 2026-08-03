@@ -11,9 +11,5 @@ def grpo_loss(
     clip_eps: float = 0.2,
     eps_std: float = 1e-4,
 ) -> torch.Tensor:
-    # TODO:
-    #   1. 组内优势: A = (rewards - rewards.mean()) / (rewards.std(unbiased=False) + eps_std)
-    #   2. PPO 裁剪:
-    #        ratio = exp(logratio)
-    #        loss = -min(ratio * A, clamp(ratio, 1-eps, 1+eps) * A).mean()
+    # TODO: 先把组内 rewards 做 z-score 归一化得到优势 A，再套 PPO 裁剪目标（见 README）。
     raise NotImplementedError

@@ -12,10 +12,5 @@ def kl_divergence(
     p_logits: torch.Tensor,
     q_logits: torch.Tensor,
 ) -> torch.Tensor:
-    # TODO:
-    #   log_p = p_logits - logsumexp(p_logits)     # 稳定 log-softmax
-    #   log_q = q_logits - logsumexp(q_logits)
-    #   p = exp(log_p)
-    #   kl_per_sample = sum_c p * (log_p - log_q)   # 沿类别维求和
-    #   return kl_per_sample.mean()                 # batch 平均
+    # TODO: 从两组 logits 计算 forward KL(P‖Q)，逐样本求和后对 batch 平均（在 log 空间计算以保证稳定）。
     raise NotImplementedError

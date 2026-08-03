@@ -13,9 +13,5 @@ def cross_entropy(
     target: torch.Tensor,
     ignore_index: int = -100,
 ) -> torch.Tensor:
-    # TODO:
-    #   1. log_softmax(logits)  —— 数值稳定（先减 max，或用 logsumexp）
-    #   2. 取出每个样本真实类别的 log-prob
-    #   3. 忽略 target == ignore_index 的样本
-    #   4. 对有效样本取负、求平均
+    # TODO: 从 logits 计算交叉熵（数值稳定的 log-softmax），跳过 target==ignore_index 的样本，对有效样本求平均。
     raise NotImplementedError
