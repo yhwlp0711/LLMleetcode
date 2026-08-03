@@ -8,6 +8,7 @@ import rehypeKatex from 'rehype-katex'
 import Editor from '@monaco-editor/react'
 import { fetchProblem, fetchProblems, fetchSolution, submitCode } from '../api/client'
 import type { ProblemDetail as PD, JudgeResult, ProblemSolution } from '../api/client'
+import { API_DOCS, type ApiDoc } from '../data/apiDocs'
 
 export default function ProblemDetail() {
   const { id } = useParams<{ id: string }>()
@@ -33,18 +34,30 @@ export default function ProblemDetail() {
     fetchProblems().then(ps => setProblemIds(new Set(ps.map(p => p.id))))
   }, [])
 
-  // Turn inline `<problem_id>` code spans into clickable links to that problem.
+  // Turn inline `<problem_id>` code spans into clickable links to that problem,
+  // and inline `<api>` code spans into hoverable tooltips showing API docs.
   const mdComponents = useMemo<Components>(() => ({
     code({ className, children, ...props }) {
-      const text = String(children)
+      const text = String(children).trim()
       const isBlock = /language-/.test(className || '') || text.includes('\n')
-      if (!isBlock && problemIds.has(text) && text !== problem?.id) {
+      if (isBlock) return <code className={className} {...props}>{children}</code>
+
+      // Problem id link
+      if (problemIds.has(text) && text !== problem?.id) {
         return (
           <Link to={`/problem/${text}`} className="text-cyan-400 hover:underline">
             <code className={className} {...props}>{children}</code>
           </Link>
         )
       }
+
+      // API tooltip: match "np.where" in "np.where" or "np.where(cond, a, b)" etc.
+      const apiKey = findApiKey(text)
+      if (apiKey) {
+        const doc = API_DOCS[apiKey]
+        return <ApiTooltipCode doc={doc} className={className} {...props}>{children}</ApiTooltipCode>
+      }
+
       return <code className={className} {...props}>{children}</code>
     },
   }), [problemIds, problem?.id])
@@ -257,5 +270,30 @@ function ResultPanel({ result }: { result: JudgeResult }) {
         ))}
       </div>
     </div>
+  )
+}
+
+// --- API tooltip helpers ---
+
+const API_KEYS = Object.keys(API_DOCS)
+
+function findApiKey(text: string): string | undefined {
+  if (API_DOCS[text]) return text
+  const base = text.replace(/\(.*$/, '')
+  if (API_DOCS[base]) return base
+  return API_KEYS.find(k => text === k || text.startsWith(k + '('))
+}
+
+function ApiTooltipCode({ doc, className, children, ...props }: { doc: ApiDoc; className?: string; children?: React.ReactNode } & React.HTMLAttributes<HTMLElement>) {
+  return (
+    <span className="relative group/api inline-block">
+      <code className={`${className || ''} border-b border-dashed border-cyan-700 cursor-help`} {...props}>{children}</code>
+      <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 rounded-lg bg-slate-800 border border-slate-600 text-xs text-slate-200 shadow-xl opacity-0 invisible group-hover/api:opacity-100 group-hover/api:visible transition pointer-events-none">
+        <span className="block font-mono text-cyan-300 mb-1">{doc.sig}</span>
+        <span className="block text-slate-300 mb-1">{doc.desc}</span>
+        <span className="block text-slate-400"><b className="text-slate-300">输入：</b>{doc.inputs}</span>
+        <span className="block text-slate-400"><b className="text-slate-300">输出：</b>{doc.outputs}</span>
+      </span>
+    </span>
   )
 }
