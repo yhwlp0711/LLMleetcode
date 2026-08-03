@@ -86,3 +86,7 @@ export async function fetchStatus(): Promise<Progress> {
   const r = await fetch(`${BASE}/status`)
   return r.json()
 }
+
+export async function resetStatus(): Promise<void> {
+  await fetch(`${BASE}/status`, { method: 'DELETE' })
+}

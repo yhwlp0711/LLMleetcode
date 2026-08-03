@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchProblems, fetchStatus } from '../api/client'
+import { fetchProblems, fetchStatus, resetStatus } from '../api/client'
 import type { ProblemMeta, StatusEntry } from '../api/client'
 
 const diffColor: Record<string, string> = {
@@ -42,7 +42,8 @@ export default function ProblemList() {
   const [progress, setProgress] = useState<{ total: number; attempted: number; perfect: number } | null>(null)
 
   useEffect(() => { fetchProblems().then(setProblems) }, [])
-  useEffect(() => {
+
+  const loadStatus = useCallback(() => {
     fetchStatus().then(s => {
       setProgress({ total: s.total, attempted: s.attempted, perfect: s.perfect })
       const map: Record<string, StatusEntry> = {}
@@ -50,6 +51,20 @@ export default function ProblemList() {
       setStatus(map)
     })
   }, [])
+
+  useEffect(() => { loadStatus() }, [loadStatus])
+
+  const handleReset = async () => {
+    if (!window.confirm('确定清空所有进度？这会清除刷题记录和本地保存的所有代码，且不可恢复。')) {
+      return
+    }
+    await resetStatus()
+    // Also clear all locally-saved code drafts.
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('code:')) localStorage.removeItem(k)
+    }
+    loadStatus()
+  }
 
   useEffect(() => {
     const key = 'problemListScroll'
@@ -119,6 +134,13 @@ export default function ProblemList() {
               style={{ width: `${progress.total ? (progress.perfect / progress.total) * 100 : 0}%` }}
             />
           </div>
+          <button
+            onClick={handleReset}
+            className="shrink-0 px-2 py-1 text-xs rounded border border-slate-600 text-slate-400 hover:text-red-400 hover:border-red-700 transition"
+            title="清空所有刷题记录和本地保存的代码"
+          >
+            清空进度
+          </button>
         </div>
       )}
       <input

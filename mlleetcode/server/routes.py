@@ -188,3 +188,10 @@ def get_status():
         perfect=perfect,
         entries=entries,
     )
+
+
+@router.delete("/status")
+def reset_status():
+    """Clear all recorded progress (history)."""
+    _save_history({})
+    return {"ok": True}
