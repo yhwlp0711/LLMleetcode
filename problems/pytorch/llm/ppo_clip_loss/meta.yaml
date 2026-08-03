@@ -1,5 +1,5 @@
-title: "PPO 裁剪损失（Clipped Surrogate）"
-difficulty: medium
+title: "PPO 损失（GAE + Clipped Surrogate）"
+difficulty: hard
 framework: pytorch
 tags: [loss, rlhf, ppo, rl, llm]
 timeout: 5

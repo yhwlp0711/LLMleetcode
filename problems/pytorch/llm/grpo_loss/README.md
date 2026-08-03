@@ -36,5 +36,5 @@ $$r_i^{\text{ratio}} = \exp(\text{logratio}_i), \qquad
 - 裁剪与 reduction 同 PPO：`clamp(ratio, 1±eps)`、batch **mean**。
 - 容差 `atol=1e-6`。
 
-> GRPO 和 PPO 的唯一区别：advantage 来自**组内 z-score 归一化的 reward**，
-> 而非 critic 估计的 value。见 `pytorch.llm.ppo_clip_loss` 对比。
+> GRPO 和 PPO 的关键区别：advantage 来自**组内 z-score 归一化的 reward**，
+> 而非 GAE / critic 估计的 value。裁剪部分见 `pytorch.llm.ppo_clip_loss` 对比。

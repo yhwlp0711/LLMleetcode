@@ -1,59 +1,71 @@
-# 解题思路：PPO 裁剪损失
+# 解题思路：PPO 损失（GAE + Clipped Surrogate）
 
-## 核心思想
+## 两段结构
 
-PPO 想「尽量按优势 A 更新 policy」，但**不让单步更新太大**。用重要性
-采样比率 $r = \pi_{\text{new}}/\pi_{\text{old}}$ 衡量更新幅度，超出
-$[1-\epsilon, 1+\epsilon]$ 就裁剪，切断梯度。
+PPO 的 policy loss = 「GAE 算优势」+「裁剪代理目标」。本题把两段合到一个函数里。
 
-## 公式与参考实现
+## 步骤 1：GAE
 
-$$\mathcal{L} = -\mathbb{E}\Bigl[\min\bigl(rA,\ \text{clip}(r, 1-\epsilon, 1+\epsilon)A\bigr)\Bigr]$$
+### TD 误差与递推
+
+$$\delta_t = r_t + \gamma V(s_{t+1})(1-\text{done}_t) - V(s_t)$$
+$$A_t = \delta_t + \gamma\lambda(1-\text{done}_t)A_{t+1}$$
+
+**从后往前**递推，`A_T` 之后初始化为 0。
 
 ```python
-def ppo_clip_loss(logratio, advantages, clip_eps=0.2):
-    ratio = torch.exp(logratio)
-    unclipped = ratio * advantages
-    clipped = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * advantages
-    return -torch.min(unclipped, clipped).mean()
+T = rewards.shape[0]
+adv = torch.zeros(T)
+gae = torch.zeros(())
+for t in range(T - 1, -1, -1):
+    nonterminal = 1.0 - dones[t]
+    delta = rewards[t] + gamma * values[t + 1] * nonterminal - values[t]
+    gae = delta + gamma * lam * nonterminal * gae
+    adv[t] = gae
 ```
 
-## 关键点
+### 关键点
 
-### 1. 为什么用 `log-ratio` 再 `exp`
+- **`values` 长度 T+1**：多出来的 `values[T]` 是 bootstrap value（对最后状态
+  的价值估计）。若最后一步是终止步（`dones[T-1]=1`），`nonterminal=0` 会把它
+  乘没，正确切断。
+- **`dones[t]` 同时作用两处**：δ 里的 bootstrap 项 和 优势递推项。终止步之后
+  的 return 不应跨 episode 传播。
+- **必须从后往前**：`A_t` 依赖 `A_{t+1}`。
 
-`ratio = exp(log π_new - log π_old)` 比 `π_new / π_old` 数值稳定（概率相除
-易下溢/上溢），且 log-prob 正好是模型直接输出的量。
+### λ 的直觉
 
-### 2. `min` 的作用（悲观下界）
+- `λ=0`：`A_t = δ_t`，只用一步 TD（低方差、高偏差）。
+- `λ=1`：`A_t = Σ γ^k δ_{t+k}`，等价 Monte-Carlo 优势（高方差、低偏差）。
+- `λ∈(0,1)`：在偏差-方差间插值。典型 0.95。
 
-取 unclipped 和 clipped 的**较小值**，等价于对 objective 取「悲观估计」：
+## 步骤 2：裁剪代理损失
 
-- **A > 0**（动作好，想增大概率）：`r` 涨到 `1+ε` 就被截，防止过度增大。
-- **A < 0**（动作差，想减小概率）：`r` 跌到 `1-ε` 就被截，防止过度减小。
+和纯裁剪版一样：
 
-`min` 保证「往有利方向更新超过 ε 时不再给额外奖励」，但**往不利方向的惩罚
-不裁剪**——这是 PPO 单调改进保证的来源。
+```python
+ratio = torch.exp(logratio)
+unclipped = ratio * adv
+clipped = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * adv
+loss = -torch.min(unclipped, clipped).mean()
+```
 
-### 3. objective 取负得到 loss
+`min` 取悲观下界；objective 取负得到 loss。详见对「clip 为何用 min」的分析
+（同 GRPO 里的裁剪部分）。
 
-论文里 PPO 最大化 objective，代码里我们最小化 loss，所以前面加负号。
+## 边界检查
 
-### 4. 边界
+- **所有步终止**（`dones` 全 1）：`nonterminal=0`，递推项和 bootstrap 都被切，
+  `A_t = r_t - V(s_t)`。此时若 `logratio=0`，`loss = -mean(r - V[:T])`。
+- **`logratio=0`**（`ratio=1`，还没更新）：`loss = -mean(A)`。
 
-- `logratio == 0`（`r == 1`，new==old）：min 两项相等 = A，`loss = -mean(A)`。
-- 这是「还没更新」时的初始 loss。
+## 为什么 advantage 通常 detach / 不参与 policy 梯度
 
-## PPO 完整 loss 里还有什么（本题不考）
+在完整训练里，advantage 由 critic 给出，policy loss 对 advantage **不回传梯度**
+（advantage 当常数）。本题只算数值，不涉及反向，直接算即可。
 
-- **value loss**：`(V(s) - returns)^2`，训练 critic
-- **entropy bonus**：`+c·H(π)` 鼓励探索
-- **GAE**：算 advantages 的方式
-- 完整：`L = L_clip - c1·L_value + c2·H`
+## PPO vs GRPO
 
-本题只考最核心、最常被单独手撕的 **clipped policy loss**。
-
-## PPO vs DPO（面试常问）
-
-- **PPO**：online RL，需要 reward model + 采样 rollout + value function，pipeline 复杂。
-- **DPO**（见 `pytorch.llm.dpo_loss`）：把偏好直接变成监督 loss，免采样、免 reward model，更稳更简单。
+两者裁剪部分完全相同，区别在优势来源：
+- **PPO**：GAE（需要 critic 提供 `values`）。
+- **GRPO**（见 `pytorch.llm.grpo_loss`）：组内 reward z-score，**无需 critic**。

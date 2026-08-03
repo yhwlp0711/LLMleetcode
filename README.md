@@ -103,7 +103,7 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | `pytorch.llm.swiglu_ffn` | medium | LLaMA 风格 FFN |
 | `pytorch.llm.transformer_block` | hard | 完整 LLaMA block（集成题） |
 | `pytorch.llm.dpo_loss` | medium | DPO 偏好损失（logsigmoid） |
-| `pytorch.llm.ppo_clip_loss` | medium | PPO 裁剪代理损失 |
+| `pytorch.llm.ppo_clip_loss` | hard | GAE 优势 + PPO 裁剪代理损失 |
 | `pytorch.llm.grpo_loss` | medium | GRPO 组内优势 + PPO 裁剪 |
 
 </details>
