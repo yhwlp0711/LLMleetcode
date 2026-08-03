@@ -184,7 +184,10 @@ def render_judge_report(report: JudgeReport, problem: Problem | None = None) -> 
         if c.reason:
             body_lines.append(f"[red]reason:[/red] {c.reason}")
         if c.compare:
-            if c.compare.max_abs_diff is not None:
+            if (
+                c.compare.max_abs_diff is not None
+                and c.compare.max_rel_diff is not None
+            ):
                 body_lines.append(
                     f"[dim]max_abs_diff:[/dim] {c.compare.max_abs_diff:.3e}    "
                     f"[dim]max_rel_diff:[/dim] {c.compare.max_rel_diff:.3e}"

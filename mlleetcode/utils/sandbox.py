@@ -30,8 +30,12 @@ def load_module_from_path(path: Path, module_name: str | None = None) -> ModuleT
     try:
         spec.loader.exec_module(module)
     except Exception as exc:
-        sys.modules.pop(name, None)
         raise SubmissionLoadError(f"Error while importing submission: {exc!r}") from exc
+    finally:
+        # The returned module object stays alive via the caller's reference; we
+        # drop it from sys.modules so repeated loads (e.g. the long-running web
+        # server) don't leak a module per submission.
+        sys.modules.pop(name, None)
     return module
 
 

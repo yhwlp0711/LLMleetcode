@@ -37,7 +37,9 @@ def _load_history() -> dict:
 
 def _save_history(data: dict) -> None:
     HISTORY_PATH.parent.mkdir(exist_ok=True)
-    HISTORY_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    HISTORY_PATH.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 @router.get("/problems", response_model=list[ProblemMeta])
@@ -64,7 +66,9 @@ def get_problem(problem_id: str):
     except LookupError as e:
         raise HTTPException(404, str(e))
     readme = p.readme_path.read_text(encoding="utf-8") if p.readme_path.exists() else ""
-    starter = p.starter_path.read_text(encoding="utf-8") if p.starter_path.exists() else ""
+    starter = (
+        p.starter_path.read_text(encoding="utf-8") if p.starter_path.exists() else ""
+    )
     return ProblemDetail(
         id=p.id,
         title=p.title,
@@ -82,8 +86,14 @@ def get_solution(problem_id: str):
         p = find_problem(problem_id)
     except LookupError as e:
         raise HTTPException(404, str(e))
-    sol_md = p.solution_md_path.read_text(encoding="utf-8") if p.solution_md_path.exists() else ""
-    sol_py = p.solution_path.read_text(encoding="utf-8") if p.solution_path.exists() else ""
+    sol_md = (
+        p.solution_md_path.read_text(encoding="utf-8")
+        if p.solution_md_path.exists()
+        else ""
+    )
+    sol_py = (
+        p.solution_path.read_text(encoding="utf-8") if p.solution_path.exists() else ""
+    )
     return ProblemSolution(id=p.id, solution_md=sol_md, solution_py=sol_py)
 
 
@@ -136,12 +146,12 @@ def submit(req: SubmitRequest):
 def _record_submission(problem_id: str, report: JudgeReport) -> None:
     history = _load_history()
     entry = history.setdefault(
-        problem_id, {"best_score": 0, "attempts": 0, "last_attempt": ""}
+        problem_id, {"best_score": 0.0, "attempts": 0, "last_attempt": ""}
     )
     entry["attempts"] += 1
     entry["last_attempt"] = time.strftime("%Y-%m-%d %H:%M:%S")
     if report.score > entry["best_score"]:
-        entry["best_score"] = report.score
+        entry["best_score"] = float(report.score)
     _save_history(history)
 
 
@@ -165,7 +175,7 @@ def get_status():
             entries.append(
                 StatusEntry(
                     problem_id=p.id,
-                    best_score=0,
+                    best_score=0.0,
                     attempts=0,
                     last_attempt="",
                 )

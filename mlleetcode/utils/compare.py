@@ -1,4 +1,5 @@
 """Numerical comparison utilities for judging."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -62,14 +63,20 @@ def compare_numeric(
     a_f = a.to(torch.float64)
     e_f = e.to(torch.float64)
     abs_diff = (a_f - e_f).abs()
-    max_abs = float(abs_diff.max().item()) if abs_diff.numel() else 0.0
+    # Ignore positions where both are NaN so legitimately-NaN outputs can match.
+    finite = ~(a_f.isnan() & e_f.isnan())
+    finite_diff = abs_diff[finite]
+    max_abs = float(finite_diff.max().item()) if finite_diff.numel() else 0.0
     denom = e_f.abs().clamp(min=1e-12)
-    max_rel = float((abs_diff / denom).max().item()) if abs_diff.numel() else 0.0
+    rel_diff = (abs_diff / denom)[finite]
+    max_rel = float(rel_diff.max().item()) if rel_diff.numel() else 0.0
 
-    passed = torch.allclose(a_f, e_f, atol=atol, rtol=rtol)
+    passed = torch.allclose(a_f, e_f, atol=atol, rtol=rtol, equal_nan=True)
     return CompareResult(
         passed=passed,
-        reason="" if passed else f"values differ beyond tolerance (atol={atol}, rtol={rtol})",
+        reason=""
+        if passed
+        else f"values differ beyond tolerance (atol={atol}, rtol={rtol})",
         max_abs_diff=max_abs,
         max_rel_diff=max_rel,
         expected_preview=_preview(e),
