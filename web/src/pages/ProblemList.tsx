@@ -9,6 +9,27 @@ const diffColor: Record<string, string> = {
   hard: 'text-red-400',
 }
 
+const diffRank: Record<string, number> = { easy: 0, medium: 1, hard: 2 }
+
+// Preferred category order (prefix match); anything else falls after, alphabetical.
+const categoryOrder = [
+  'numpy.basics',
+  'numpy.ml',
+  'pytorch.basics',
+  'pytorch.ml',
+  'pytorch.nn',
+  'pytorch.llm.attention',
+  'pytorch.llm.positional',
+  'pytorch.llm.blocks',
+  'pytorch.llm.decoding',
+  'pytorch.llm.loss',
+]
+
+function categoryWeight(cat: string): number {
+  const i = categoryOrder.indexOf(cat)
+  return i === -1 ? categoryOrder.length : i
+}
+
 const fwColor: Record<string, string> = {
   numpy: 'bg-blue-900 text-blue-300',
   pytorch: 'bg-purple-900 text-purple-300',
@@ -30,12 +51,37 @@ export default function ProblemList() {
     })
   }, [])
 
+  useEffect(() => {
+    const key = 'problemListScroll'
+    const onScroll = () => sessionStorage.setItem(key, String(window.scrollY))
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    if (!problems.length) return
+    const saved = sessionStorage.getItem('problemListScroll')
+    if (saved) {
+      requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)))
+    }
+  }, [problems.length])
+
   const grouped = problems.reduce((acc, p) => {
     ;(acc[p.category] ||= []).push(p)
     return acc
   }, {} as Record<string, ProblemMeta[]>)
 
-  const categories = Object.keys(grouped).sort()
+  // Sort each category's problems by difficulty (easy → hard), then title.
+  for (const cat of Object.keys(grouped)) {
+    grouped[cat].sort((a, b) => {
+      const d = (diffRank[a.difficulty] ?? 9) - (diffRank[b.difficulty] ?? 9)
+      return d !== 0 ? d : a.title.localeCompare(b.title)
+    })
+  }
+
+  const categories = Object.keys(grouped).sort(
+    (a, b) => categoryWeight(a) - categoryWeight(b) || a.localeCompare(b),
+  )
 
   const filtered = filter
     ? categories.filter(c => c.includes(filter) || grouped[c].some(p => p.title.includes(filter) || p.id.includes(filter)))
