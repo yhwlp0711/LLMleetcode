@@ -23,6 +23,13 @@ export default function ProblemDetail() {
 
   useEffect(() => {
     if (!id) return
+    // Reset per-problem state so navigating between problems doesn't leave
+    // stale solution/result or a tab pointing at old content.
+    setProblem(null)
+    setResult(null)
+    setSolution(null)
+    setShowSolution(false)
+    setActiveTab('description')
     Promise.all([
       fetchProblem(id),
       fetchProblems(),
