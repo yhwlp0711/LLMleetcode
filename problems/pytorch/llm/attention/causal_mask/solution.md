@@ -1,86 +1,80 @@
 # 解题思路：因果 + Padding Mask
 
-## 一句话理解
+## 一句话思路
 
-把两个独立的「保留集」做交集：
+这题是把两个「保留条件」做**交集**：padding 上要求 query 和 key 都是真实 token，
+causal（因果）上要求 key 的位置不超过 query。全程用广播（broadcasting）+ 布尔运
+算就能一次算出，不用任何循环。
 
-- **Padding 保留集**：query 和 key 都不是 padding
-- **Causal 保留集**：key 的位置不超过 query 的位置
+## 拆解思路
+
+### 目标：`out[b, 0, i, j]` 什么时候为 True？
+
+同时满足三条：query 位置 `i` 不是 padding、key 位置 `j` 不是 padding、且（若
+causal）`j <= i`。把它拆成两块独立的「保留集」再取交集：
+
+- **padding 保留集**：两端都是真实 token。
+- **causal 保留集**：`j <= i`，即一个下三角矩阵。
+
+### padding：用广播做「布尔外积」
+
+`pad_mask` 形状 `(B, T)`。把它一次变成 query 方向、一次变成 key 方向再相与：
+
+```
+q_keep = pad_mask[:, :, None]   # (B, T, 1)  对应 query 位置 i
+k_keep = pad_mask[:, None, :]   # (B, 1, T)  对应 key   位置 j
+base   = q_keep & k_keep        # (B, T, T)  两端都真实才 True
+```
+
+这就是布尔版的「外积」：`base[b, i, j] = pad[b, i] & pad[b, j]`。因为 query 那一
+维也参与了，padding 位置对应的**整行**会被清空——正好满足题目要求。
+
+### causal：下三角矩阵
+
+`torch.tril(torch.ones(T, T, bool))` 生成下三角（含主对角线）的 True 矩阵，第 `i`
+行只有 `j <= i` 为 True。和 `base` 相与即可。
+
+### 补上 head 维
+
+输出要 `(B, 1, T, T)`，中间的 `1` 是 head 维占位，`unsqueeze(1)` 加上即可。这样
+后续 SDPA（见 `pytorch.llm.attention.scaled_dot_product_attention`）能把它广播到
+`(B, num_heads, T, T)`。
 
 ## 参考实现
 
 ```python
+import torch
+
 def build_attention_mask(pad_mask, causal):
     B, T = pad_mask.shape
-    q_keep = pad_mask[:, :, None]   # (B, T, 1) — i 维
-    k_keep = pad_mask[:, None, :]   # (B, 1, T) — j 维
-    base = q_keep & k_keep          # (B, T, T) — 两端都非 padding
+    q_keep = pad_mask[:, :, None]                # (B, T, 1)
+    k_keep = pad_mask[:, None, :]                # (B, 1, T)
+    base = q_keep & k_keep                       # (B, T, T) 两端都非 padding
 
     if causal:
         tri = torch.tril(torch.ones(T, T, dtype=torch.bool, device=pad_mask.device))
-        base = base & tri
+        base = base & tri                        # 叠加 j <= i
 
-    return base.unsqueeze(1)        # (B, 1, T, T)
+    return base.unsqueeze(1)                      # (B, 1, T, T)
 ```
 
-## 关键技巧
+## 关键点
 
-### 1. 用广播构造 (T, T) 的相容矩阵
+1. **广播做布尔外积**。`pad_mask[:, :, None] & pad_mask[:, None, :]` 一步得到
+   `(B, T, T)` 的相容矩阵，`out[b,i,j] = pad[b,i] & pad[b,j]`。这也是为什么 padding
+   query 的整行会自动变 False——`q_keep` 那一项管着行。
 
-```python
-q_keep = pad_mask[:, :, None]   # (B, T) → (B, T, 1)
-k_keep = pad_mask[:, None, :]   # (B, T) → (B, 1, T)
-q_keep & k_keep                 # (B, T, 1) & (B, 1, T) → (B, T, T)
-```
+2. **`tril` 默认含主对角线**。`diagonal=0` 表示保留 `j <= i`，即当前 token 能看到
+   自己。若要「只能看严格更早的位置」，用 `diagonal=-1`；本题按常规因果语义包含
+   对角线。
 
-这是经典「外积式」操作的布尔版本。`out[b, i, j] = pad[b, i] & pad[b, j]`，
-正好对应「(i, j) 这格保留 ⟺ 两端都是真实 token」。
+3. **约定 `True = 保留`，全局统一**。这和 SDPA 的 mask 约定一致（False 位置在
+   softmax 前置 $-\infty$）。若反过来用 `True = 屏蔽`，所有布尔逻辑都要翻转，很容
+   易出错，所以务必统一。
 
-### 2. `torch.tril(torch.ones(T, T, bool))` 生成 causal mask
+4. **传 `device` 避免设备不匹配**。`torch.ones(...)` 默认在 CPU；若 `pad_mask` 在
+   GPU 上，直接做 `&` 会报 device mismatch。加 `device=pad_mask.device` 是好习惯。
 
-下三角矩阵：
-
-```
-[[T, F, F, F],
- [T, T, F, F],
- [T, T, T, F],
- [T, T, T, T]]
-```
-
-`tril` 默认 `diagonal=0`，即**包括主对角线**。如果想"严格小于 i"（不能看
-当前位置），用 `diagonal=-1`。本题按常规 causal 语义，包含对角线。
-
-### 3. unsqueeze(1) 加 head 维
-
-输出要求 `(B, 1, T, T)`，其中 `1` 是 head 维的占位 —— 后续 SDPA 会广播到
-`(B, num_heads, T, T)`。如果不加这个 head 维，SDPA 里 `scores.masked_fill(~mask, -inf)`
-就 shape 对不上了。
-
-## 易错点
-
-### 1. `pad_mask` 是 bool 而不是 float
-
-按惯例 `True = 保留`，跟 SDPA 题约定一致。如果你想反过来（`True = 屏蔽`），
-所有逻辑要翻转，容易出错。**统一一个约定**，全局严守。
-
-### 2. causal mask 要不要 query 维度也来 mask？
-
-经典写法是 `j <= i`，跟 `i` 的真实性没关系。但题目要求**整行**也清空（i
-是 padding 的行），所以最终结果里 padding query 的整行都是 F。这是
-`q_keep[:, :, None]` 这一项的贡献。
-
-### 3. device 要传
-
-`torch.ones(T, T)` 默认在 CPU 上，如果 `pad_mask` 在 GPU 上，做 `&` 会报
-device mismatch。所以参考实现里加了 `device=pad_mask.device`。本题判分都
-在 CPU，但养成习惯总没错。
-
-## 为什么这道题值得单独练？
-
-`pad + causal mask` 的组合是 LLM 训练代码里的高频 bug 源：
-
-- 忘记把 padding query 的整行清空 → loss 计算时把无效位置算进去
-- 反向约定 `True = 屏蔽` 跟下游 SDPA 不一致
-- mask 没加 head 维度 → 广播失败
-
-把它独立成题，逼你写对一次，未来直接复用。
+5. **延伸**：这个 mask 就是喂给 `pytorch.llm.attention.scaled_dot_product_attention`
+   和 `pytorch.llm.attention.mha` 的 `mask` 参数。padding + causal 的组合是 LLM 训
+   练里高频的 bug 源，独立写对一次，后面直接复用。

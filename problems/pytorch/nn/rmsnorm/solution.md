@@ -1,4 +1,29 @@
-# 解题思路：RMSNorm
+# 解题思路：RMSNorm 模块
+
+## 一句话思路
+
+RMSNorm（Root Mean Square Layer Normalization）是 LayerNorm 的「精简版」：**去掉减
+均值、去掉 bias**，只按均方根（root mean square）缩放，再乘一个可学习的 `weight`。
+LLaMA 等现代 LLM 都用它，因为省一半的归约（reduce）却几乎不掉效果。
+
+## 从直觉到公式
+
+### 和 LayerNorm 的区别
+
+LayerNorm 要「减均值再除标准差」，RMSNorm 认为**减均值这步（re-center）其实可有可
+无**，只要把向量的整体尺度归一（re-scale）就够了。于是它直接用均方根当分母：
+
+$$\text{RMS}(x) = \sqrt{\frac{1}{D}\sum_i x_i^2 + \epsilon}$$
+
+$$y = \frac{x}{\text{RMS}(x)} \cdot \text{weight}$$
+
+均方根就是「所有分量平方的平均再开根」，衡量向量的整体幅度。用它去除，就把 `x` 缩
+放到一个稳定的尺度。没有 bias，只有一个初始化为全 1 的 `weight`。
+
+### 一个细节：eps 加在 sqrt 内部
+
+`eps` 加在开方**内部**（`sqrt(mean(x²) + eps)`），和 LLaMA 实现一致，防止 `x` 全 0
+时分母为 0。
 
 ## 参考实现
 
@@ -8,54 +33,28 @@ class RMSNorm(nn.Module):
         super().__init__()
         self.normalized_dim = normalized_dim
         self.eps = eps
-        self.weight = nn.Parameter(torch.ones(normalized_dim))
+        self.weight = nn.Parameter(torch.ones(normalized_dim))   # 只有 weight，无 bias
 
     def forward(self, x):
-        rms = torch.sqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        rms = torch.sqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)  # eps 在 sqrt 内
         return (x / rms) * self.weight
 ```
 
-## RMSNorm vs LayerNorm
+## 关键点
 
-| | LayerNorm | RMSNorm |
-|---|---|---|
-| 减均值 | ✓ | ✗ |
-| 除以 std | ✓ | ✗（除以 RMS） |
-| weight | ✓ | ✓ |
-| bias | ✓ | ✗ |
-| 计算量 | 2 次 reduce + 1 次 sqrt | 1 次 reduce + 1 次 sqrt |
+1. **必须用 `nn.Parameter`**：和 LayerNorm 一样，只有包成 `nn.Parameter` 的张量才会
+   被训练、进 `state_dict`、被判分识别。写成普通 `torch.ones(D)` 会判分失败。
 
-RMSNorm 的核心论点：减均值（re-center）对效果几乎没影响，只要 re-scale 就
-够了，省一半的 reduce。LLaMA 系列实测训练稳定且更快，所以推广开来。
+2. **`keepdim=True` 用于广播**：`mean(dim=-1, keepdim=True)` 把 `(...,D)` 归约成
+   `(...,1)`，才能和原 `x` 做 `x / rms` 的广播（broadcasting）。
 
-## 实现细节
+3. **eps 加在 sqrt 内部**：`sqrt(mean(x²) + eps)` 避免 `x` 极小时除法不稳定，和 LLaMA
+   一致；写成 `sqrt(...) + eps`（外部）数值略有差异，本题按内部。
 
-### 1. `x.pow(2)` vs `x ** 2` vs `x * x`
+4. **一个等价的更快写法**：把「除以 sqrt」换成「乘以 rsqrt」，
+   `x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + eps) * self.weight`。`rsqrt` 是倒
+   数平方根，硬件有专门指令，少一次除法、数值等价，判分同样能过。
 
-三者数学等价、性能基本一致。`x.pow(2)` 最明确表达「平方」语义。本题任选。
-
-### 2. `eps` 加在 sqrt 内 vs 外
-
-- **内**（本题）：`sqrt(rms² + eps)`，避免 `rms` 极小时除法不稳定。
-- **外**：`sqrt(rms²) + eps`，等价于在分母上加一个常数。
-
-两种都有论文用过，差异在 `rms` 接近 0 时才显现。LLaMA 用内部，本题按
-LLaMA。
-
-### 3. 等价写法：`rsqrt`
-
-`rsqrt(x) = 1 / sqrt(x)` 在底层有专门的快速指令（hardware reciprocal
-sqrt）：
-
-```python
-def forward(self, x):
-    return x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps) * self.weight
-```
-
-把「除以 sqrt」改成「乘以 rsqrt」，少一个除法，理论上更快（数值上等价，
-本题判分能过）。
-
-## 为什么 LayerNorm 有 bias 而 RMSNorm 没？
-
-RMSNorm 论文实验显示 bias 对效果没什么帮助，但增加参数量和带宽。LLaMA 等
-工程导向的模型直接砍掉。这种「砍多余设计」的风格在现代 LLM 里很常见。
+5. **延伸**：RMSNorm 是在 LayerNorm 基础上「砍掉冗余设计」的典型——见
+   `pytorch.nn.layernorm` 对比两者。这种精简换速度的思路在现代 LLM 里很常见（比如前馈
+   网络换成门控的 `pytorch.nn.gated_activations`）。

@@ -1,70 +1,72 @@
 # 解题思路：Sinusoidal Position Encoding
 
-## 公式回顾
+## 一句话思路
 
-$$\text{PE}[pos, 2i] = \sin(pos \cdot \theta\_i),\quad \text{PE}[pos, 2i+1] = \cos(pos \cdot \theta\_i),\quad \theta\_i = 10000^{-2i / d\\_{\text{model}}}$$
+正弦位置编码（sinusoidal positional encoding, PE）是 Transformer 原始论文的位置编
+码方案：给每个位置、每个维度分配一个固定的 sin/cos 值，偶数维放 sin、奇数维放
+cos，不同维度用不同频率。核心就是一次「位置 × 频率」的外积广播，再把 sin/cos 交错
+填回去。
+
+## 从直觉到公式
+
+### 为什么要位置编码？
+
+注意力本身是「位置无关」的——把输入 token 打乱顺序，attention 输出只是对应打乱，
+不知道谁在前谁在后。位置编码给每个位置一个独特的「身份指纹」加到 embedding 上，
+让模型能感知顺序。
+
+### 公式
+
+对位置 $pos$ 和维度对 $i$（$i = 0, 1, \dots, d_{\text{model}}/2 - 1$）：
+
+$$\text{PE}[pos, 2i] = \sin\bigl(pos \cdot \theta_i\bigr)$$
+
+$$\text{PE}[pos, 2i{+}1] = \cos\bigl(pos \cdot \theta_i\bigr)$$
+
+其中频率 $\theta_i = 1 / 10000^{2i / d_{\text{model}}}$。低维度的频率高（变化快），
+高维度的频率低（变化慢、周期长），形成一组不同尺度的「时钟」，让模型既能感知相
+邻 token 的差异，也能分辨远处的位置。
+
+### 实现思路
+
+1. 算出所有频率：`inv_freq = 1 / 10000^(2i / d_model)`，共 $d_{\text{model}}/2$ 个。
+2. 构造角度矩阵：`angles[m, i] = m * inv_freq[i]`——就是位置向量和频率向量的外积广
+   播（broadcasting），`(seq_len, 1) * (1, d_model/2) → (seq_len, d_model/2)`。
+3. 偶数列填 `sin(angles)`，奇数列填 `cos(angles)`。
 
 ## 参考实现
 
 ```python
+import torch
+
 def build_sinusoidal_pe(seq_len, d_model):
     inv_freq = 1.0 / (10000.0 ** (torch.arange(0, d_model, 2, dtype=torch.float32) / d_model))
     pos = torch.arange(seq_len, dtype=torch.float32)
-    angles = pos[:, None] * inv_freq[None, :]    # (seq_len, d_model/2)
+    angles = pos[:, None] * inv_freq[None, :]       # (seq_len, d_model/2)
 
     pe = torch.zeros(seq_len, d_model, dtype=torch.float32)
-    pe[:, 0::2] = angles.sin()
-    pe[:, 1::2] = angles.cos()
+    pe[:, 0::2] = angles.sin()                      # 偶数维放 sin
+    pe[:, 1::2] = angles.cos()                      # 奇数维放 cos
     return pe
 ```
 
-## 三个关键操作
+## 关键点
 
-### 1. `torch.arange(0, d_model, 2)` 取偶数索引
+1. **`torch.arange(0, d_model, 2)` 取偶数索引得到频率**。步长为 2，得到
+   `[0, 2, 4, ..., d_model-2]`，共 $d_{\text{model}}/2$ 个，每个对应一个独立频率
+   $\theta_i$。
 
-得到 `[0, 2, 4, ..., d_model-2]`，长度 `d_model/2`。每个 `2i` 对应一个
-独立的频率 `theta_i`。
+2. **外积广播构造角度矩阵**。`pos[:, None]` 是 `(seq_len, 1)`，`inv_freq[None, :]`
+   是 `(1, d_model/2)`，相乘广播到 `(seq_len, d_model/2)`。一次矩阵乘法（或广播乘
+   法）算出所有 `(位置, 频率)` 组合的角度。
 
-### 2. 外积构造角度矩阵
+3. **切片赋值 `[:, 0::2]` 和 `[:, 1::2]`**。`0::2` 取偶数列、`1::2` 取奇数列。
+   shape 都是 `(seq_len, d_model/2)`，和 `angles.sin()` 正好对齐，直接赋值。
 
-`pos[:, None] * inv_freq[None, :]`：
-- `pos[:, None]` 是 `(seq_len, 1)`
-- `inv_freq[None, :]` 是 `(1, d_model/2)`
-- 广播相乘 → `(seq_len, d_model/2)`
+4. **位置 0 的 PE 是 `[0, 1, 0, 1, ...]`**。`pos=0` 时所有角度为 0，`sin(0)=0`、
+   `cos(0)=1`。这是一个有用的快速正确性检查。
 
-`angles[m, i] = m * theta_i`，每个位置 × 每个频率。
-
-### 3. 切片赋值 `[:, 0::2]` 和 `[:, 1::2]`
-
-把 sin 填到偶数列，cos 填到奇数列。`pe[:, 0::2] = angles.sin()` 这种切片
-赋值是 PyTorch 标准操作，shape 自动对齐 `(seq_len, d_model/2)`。
-
-## 跟 RoPE 的对比
-
-| | Sinusoidal PE | RoPE |
-|---|---|---|
-| 形式 | 加性（`x + pe`） | 乘性（旋转）|
-| 作用对象 | 输入 embedding | Q / K 张量 |
-| 相对位置 | 隐式（在 attention 计算中体现）| 显式（旋转矩阵的乘积自然得到相对距离）|
-| 外推性 | 一般（训练时见过的位置外才差）| 更好 |
-| 应用 | BERT, GPT-2 | LLaMA, Mistral, Qwen |
-
-虽然 RoPE 已是主流，sinusoidal PE 仍然出现在很多面试题里 —— 因为它的数
-学性质（不同频率的正交基）是理解 attention「为什么能编码相对位置」的入
-口。
-
-## 「位置 0 = [0, 1, 0, 1, ...]」的属性测试
-
-题目里有一个 property 测试：位置 0 的 PE 应该是 `[0, 1, 0, 1, ...]`。
-因为 `pos=0` 时所有 `angles = 0`，所以 `sin(0)=0, cos(0)=1`。
-
-这种属性测试比"数值对比"更能捕捉「公式记反」的 bug —— 如果你把 sin/cos
-位置搞反，数值对比会因为参考实现也错而通过；但 property 测试有独立的预
-期值，会暴露 bug。
-
-## 为什么 base 是 10000？
-
-来自论文，作者表示：「我们选择这个值是因为它对我们的训练序列长度（512）
-来说足够长，能让最低频率覆盖完整周期」。10000 没什么神奇，是个工程经验
-值。RoPE 通常也用 10000；LLaMA-3 等模型为了支持长上下文（128k+）把
-base 调大到 50w 甚至 100w。
+5. **延伸**：正弦 PE 是加性的（直接加到 embedding 上），而 RoPE（见
+   `pytorch.llm.positional.rope`）是乘性的（旋转 Q/K 向量）。两者共享「不同维度用
+   不同频率」的核心设计，但 RoPE 能更显式地编码相对位置、外推性也更好，已成为
+   LLaMA、Mistral 等现代 LLM 的标配。

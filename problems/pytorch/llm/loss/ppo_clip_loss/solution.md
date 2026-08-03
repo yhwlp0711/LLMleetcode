@@ -1,88 +1,100 @@
 # 解题思路：PPO 损失（KL 惩罚 + GAE + Clipped Surrogate）
 
-## 三段结构
+## 一句话思路
 
-RLHF 版 PPO 的 policy loss = 「KL 惩罚并入 reward」+「GAE 算优势」+「裁剪代理目标」。
+RLHF 里 PPO 的 policy loss 分三步：先把 **KL 惩罚**逐 token 并入 reward（约束策
+略别跑离参考模型太远）；再用带惩罚的 reward + 价值估计走 **GAE**（广义优势估计）
+从后往前递推出每步优势（advantage）；最后用**裁剪代理目标**限制每步更新幅度。
 
-## 步骤 0：KL 惩罚并入 reward
+## 从直觉到公式
 
-RLHF 里要约束 policy 不跑离参考模型太远，做法是把 `−β·KL(π‖π_ref)` 逐 token
-加到 reward。KL 用 **k3 估计器**（无偏 + 低方差 + 恒正，见
-`pytorch.llm.loss.kl_penalty_estimators`）：
+### 步骤 1：KL 惩罚并入 reward
 
-```python
-logr = logp_ref - logp
-kl = torch.exp(logr) - 1.0 - logr        # k3
-r = rewards - kl_coef * kl               # 带惩罚的 reward，用它走 GAE
-```
+RLHF 想要模型变得更好（reward 大），但又不能变得「面目全非」。做法是逐 token 从
+reward 里减掉一个 KL 项，相当于给跑偏的行为「罚钱」。KL 用 k3 估计器（无偏 + 恒
+正 + 低方差，见 `pytorch.llm.loss.kl_penalty_estimators`）：
 
-**注意**：KL 惩罚进的是 **reward**（GAE 之前），不是直接进 loss。这是 RLHF
-PPO 的标准做法（InstructGPT）。
+$$\text{logr}_t = \log\pi_{\text{ref},t} - \log\pi_t$$
 
-## 步骤 1：GAE
+$$\text{kl}_t = e^{\text{logr}_t} - 1 - \text{logr}_t$$
 
-### TD 误差与递推
+$$r'_t = r_t - \beta \cdot \text{kl}_t$$
 
-$$\delta_t = r_t + \gamma V(s_{t+1})(1-\text{done}_t) - V(s_t)$$
-$$A_t = \delta_t + \gamma\lambda(1-\text{done}_t)A_{t+1}$$
+### 步骤 2：GAE 从后往前递推优势
 
-**从后往前**递推，`A_T` 之后初始化为 0。
+有了带惩罚的 reward $r'$ 和外部给的 value 估计 $V(s_t)$，先算单步 TD 误差
+（temporal difference）：
 
-```python
-T = rewards.shape[0]
-adv = torch.zeros(T)
-gae = torch.zeros(())
-for t in range(T - 1, -1, -1):
-    nonterminal = 1.0 - dones[t]
-    delta = r[t] + gamma * values[t + 1] * nonterminal - values[t]
-    gae = delta + gamma * lam * nonterminal * gae
-    adv[t] = gae
-```
+$$\delta_t = r'_t + \gamma \cdot V(s_{t+1}) \cdot (1 - \text{done}_t) - V(s_t)$$
 
-### 关键点
+再从后往前递推得到**多步**优势：
 
-- **`values` 长度 T+1**：多出来的 `values[T]` 是 bootstrap value（对最后状态
-  的价值估计）。若最后一步是终止步（`dones[T-1]=1`），`nonterminal=0` 会把它
-  乘没，正确切断。
-- **`dones[t]` 同时作用两处**：δ 里的 bootstrap 项 和 优势递推项。终止步之后
-  的 return 不应跨 episode 传播。
-- **必须从后往前**：`A_t` 依赖 `A_{t+1}`。
+$$A_t = \delta_t + \gamma \lambda \cdot (1 - \text{done}_t) \cdot A_{t+1}$$
 
-### λ 的直觉
+$A_T$ 之后初始化为 0。$\lambda$ 是偏差-方差的插值旋钮：$\lambda=0$ 只用一步 TD
+（低方差高偏差），$\lambda=1$ 相当于 Monte-Carlo（高方差低偏差），常用 0.95。
 
-- `λ=0`：`A_t = δ_t`，只用一步 TD（低方差、高偏差）。
-- `λ=1`：`A_t = Σ γ^k δ_{t+k}`，等价 Monte-Carlo 优势（高方差、低偏差）。
-- `λ∈(0,1)`：在偏差-方差间插值。典型 0.95。
+`(1 - done_t)` 在终止步把 bootstrap 和递推都切断——episode 结束后的回报不应回传。
 
-## 步骤 2：裁剪代理损失
+### 步骤 3：裁剪代理目标
 
-和纯裁剪版一样：
+$$\text{ratio}_t = \exp(\text{logratio}_t) = \frac{\pi_{\text{new}}}{\pi_{\text{old}}}$$
+
+$$\mathcal{L} = -\operatorname{mean}_t\Bigl[\min\bigl(\text{ratio}_t \cdot A_t,\ \text{clip}(\text{ratio}_t, 1{-}\epsilon, 1{+}\epsilon) \cdot A_t\bigr)\Bigr]$$
+
+`min` 保证无论优势正负都取保守方向——限制策略单步变化不能太大，避免「一步迈太远
+训崩」。
+
+## 参考实现
 
 ```python
-ratio = torch.exp(logratio)
-unclipped = ratio * adv
-clipped = torch.clamp(ratio, 1 - clip_eps, 1 + clip_eps) * adv
-loss = -torch.min(unclipped, clipped).mean()
+import torch
+
+def ppo_clip_loss(logratio, logp, logp_ref, rewards, values, dones,
+                  gamma=0.99, lam=0.95, clip_eps=0.2, kl_coef=0.1):
+    # Step 1: KL penalty (k3) 并入 reward
+    logr = logp_ref - logp
+    kl = torch.exp(logr) - 1.0 - logr
+    r = rewards - kl_coef * kl
+
+    # Step 2: GAE（从后往前递推）
+    T = r.shape[0]
+    adv = torch.zeros(T, dtype=r.dtype)
+    gae = torch.zeros((), dtype=r.dtype)
+    for t in range(T - 1, -1, -1):
+        nonterminal = 1.0 - dones[t]
+        delta = r[t] + gamma * values[t + 1] * nonterminal - values[t]
+        gae = delta + gamma * lam * nonterminal * gae
+        adv[t] = gae
+
+    # Step 3: 裁剪代理目标
+    ratio = torch.exp(logratio)
+    unclipped = ratio * adv
+    clipped = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps) * adv
+    loss = -torch.min(unclipped, clipped).mean()
+    return loss
 ```
 
-`min` 取悲观下界；objective 取负得到 loss。详见对「clip 为何用 min」的分析
-（同 GRPO 里的裁剪部分）。
+## 关键点
 
-## 边界检查
+1. **KL 惩罚进 reward，不是直接进 loss**。把 $-\beta \cdot \text{kl}$ 加到 reward
+   上，让 GAE 把惩罚也「折扣传播」到多步优势里——这是 InstructGPT / trl 的标准
+   做法。
 
-- **所有步终止**（`dones` 全 1）：`nonterminal=0`，递推项和 bootstrap 都被切，
-  `A_t = r'_t - V(s_t)`（注意用带 KL 惩罚的 `r'`）。此时若 `logratio=0`，
-  `loss = -mean(r' - V[:T])`。
-- **`kl_coef=0`**：退化为无 KL 惩罚的普通 GAE-PPO。
-- **`logratio=0`**（`ratio=1`，还没更新）：`loss = -mean(A)`。
+2. **`values` 长度是 T+1**。多出来的 `values[T]` 是 bootstrap value（对最终状态
+   的价值估计）。`nonterminal = 1 - dones[t]` 在终止步把 `values[t+1]` 乘没，同
+   时也切断优势递推项。
 
-## 为什么 advantage 通常 detach / 不参与 policy 梯度
+3. **必须从后往前递推**。$A_t$ 依赖 $A_{t+1}$，所以 `range(T-1, -1, -1)`。初始
+   `gae = 0`，代表 $A_T$ 之后的未来贡献为 0。
 
-在完整训练里，advantage 由 critic 给出，policy loss 对 advantage **不回传梯度**
-（advantage 当常数）。本题只算数值，不涉及反向，直接算即可。
+4. **advantage 不做归一化**。工业训练里常把 advantage 减 mean 除 std 来稳定梯度，
+   但本题为了确定性判分，不做归一化，直接用算出来的原始值。
 
-## PPO vs GRPO
+5. **`min` 在裁剪目标里的作用**。正优势时 `min` 防止 ratio 过大（策略变得过于偏
+   好该动作）；负优势时 `min` 防止 ratio 过小（策略「过度逃离」该动作）。无论哪
+   种情况，都是取保守的那一侧。
 
-两者裁剪部分完全相同，区别在优势来源：
-- **PPO**：GAE（需要 critic 提供 `values`）。
-- **GRPO**（见 `pytorch.llm.loss.grpo_loss`）：组内 reward z-score，**无需 critic**。
+6. **延伸**：PPO 和 GRPO（见 `pytorch.llm.loss.grpo_loss`）裁剪部分完全相同，区
+   别在优势来源：PPO 用价值网络（value network）+ GAE，GRPO 用组内 z-score 无
+   需 critic。不需要采样的纯监督做法则是 DPO（见 `pytorch.llm.loss.dpo_loss`）。

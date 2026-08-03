@@ -1,106 +1,76 @@
 # 解题思路：带 KV Cache 的 SDPA
 
-## 为什么需要 KV Cache
+## 一句话思路
 
-LLM 自回归生成时，每生成一个新 token，需要重新计算「整个已生成序列」的
-注意力。Naive 写法每步 O(T²)，T 步总共 O(T³)，巨慢。
+自回归生成时，历史 token 的 K/V 是不变的。KV cache 就是把它们缓存起来，每步只算
+**新 token 的 K/V**，拼到缓存末尾，再让新 query 对「完整 K/V」做一次注意力。核心
+只有两步：**沿序列维拼接 cache + 标准 SDPA**，难点在处理首步 cache 为空的边界。
 
-观察：**已生成 token 的 K/V 是不变的**。把它们缓存下来，每步只需：
-1. 算新 token 的 K/V（很小，只有 1 个位置）
-2. 把新 K/V append 到 cache
-3. 新 token 的 Q 跟「整个 cache」做 attention（O(T) 而非 O(T²)）
+## 拆解思路
 
-总复杂度从 O(T³) 降到 O(T²)，对长序列差异巨大。
+### 为什么需要 KV cache？
+
+朴素写法每生成一个 token 都重算整个序列的注意力，$T$ 步累计是 $O(T^3)$，非常慢。
+关键观察是：**已生成 token 的 K/V 只跟它自己有关，不会变**。于是每步只需要：
+
+1. 算新 token 的 K/V（只有新增的几个位置，很小）；
+2. 把新 K/V 拼到缓存的 K/V 末尾；
+3. 用新 token 的 Q 对「完整缓存」做注意力。
+
+单步从 $O(T^2)$ 降到 $O(T)$，长序列下差距巨大。
+
+### 拼接沿哪一维？
+
+张量形状是 `(B, H, T, D)`，要拼的是序列维 `T`，也就是 `dim=-2`。千万别拼 `dim=-1`
+（那是特征维 `D`，拼错会让特征越变越长）。
+
+### 首步没有历史
+
+第一步 `k_cache` / `v_cache` 是 `None`（或空张量），此时直接用新的 K/V 当作完整
+K/V，不做拼接。
 
 ## 参考实现
 
 ```python
+import torch
+import torch.nn.functional as F
+from math import sqrt
+
 def sdpa_with_kv_cache(q_new, k_new, v_new, k_cache, v_cache):
     if k_cache is not None and k_cache.numel() > 0:
-        new_k = torch.cat([k_cache, k_new], dim=-2)
-        new_v = torch.cat([v_cache, v_new], dim=-2)
-    else:
-        new_k = k_new
-        new_v = v_new
+        new_k_cache = torch.cat([k_cache, k_new], dim=-2)   # 沿 T 维拼接
+        new_v_cache = torch.cat([v_cache, v_new], dim=-2)
+    else:                                                    # 首步：cache 为空
+        new_k_cache, new_v_cache = k_new, v_new
 
     d = q_new.shape[-1]
-    scores = q_new @ new_k.transpose(-2, -1) / sqrt(d)
+    scores = q_new @ new_k_cache.transpose(-2, -1) / sqrt(d)  # q 对完整 K
     attn = F.softmax(scores, dim=-1)
-    out = attn @ new_v
+    out = attn @ new_v_cache
 
-    return out, new_k, new_v
+    return out, new_k_cache, new_v_cache
 ```
 
 ## 关键点
 
-### 1. `dim=-2` 拼接的是 T 维
+1. **拼接用 `dim=-2`（序列维 T）**。形状 `(B, H, T, D)` 里 `T` 在倒数第二维。用相
+   对索引 `-2` 比写死 `2` 更稳，换布局也不出错。
 
-张量 shape `(B, H, T, D)`，`dim=-2 = T 维`。**不要用 `dim=-1`**（那是 D
-维，拼起来会让特征维变长，完全错）。
+2. **正确处理 `cache=None` 的边界**。首步没有历史，`if k_cache is not None and
+   k_cache.numel() > 0` 同时兼容「传 None」和「传空张量」两种约定；否则用新 K/V
+   直接当完整 K/V。
 
-### 2. 处理 `cache=None` 的边界
+3. **SDPA 用「拼接后的完整 K/V」**。`q_new` 可能只有 1 个 token，但它要看到全部历
+   史，所以 key/value 用拼好的 `new_k_cache` / `new_v_cache`。形状对账：
+   `(B,H,T_new,D) @ (B,H,D,T_full) → (B,H,T_new,T_full)`。KV cache 的本质就是 q
+   短、k/v 越来越长。
 
-首步调用时没有历史，cache 是 `None`（或长度为 0 的张量）。简单 `if` 判
-断即可：
+4. **正确性的等价定义：增量 == 一次性 prefill**。把序列一次性喂进去算出的最后一
+   步输出，应当等于「先填好前 $T-1$ 步的 cache，再增量算第 $T$ 步」的输出。因为
+   最后一步的 query 是同一个、能看到的 K/V 也是同一批，两者数学上完全等价。对不
+   上就说明 cache 拼错了。本题按题面简化**不加 mask**（构造场景保证 q 只看 ≤ 自
+   己位置的 key）。
 
-```python
-if k_cache is not None and k_cache.numel() > 0:
-    new_k = torch.cat([k_cache, k_new], dim=-2)
-else:
-    new_k = k_new
-```
-
-加 `numel() > 0` 是为了同时兼容「传 None」和「传空张量」两种约定。
-
-### 3. SDPA 用「拼接后的完整 K/V」
-
-`q_new` 是「本步的 query」（很可能只有 1 个 token），但它要看**整个**
-历史 + 当前 → key 用 `new_k`（包含 cache）。这是 KV cache 的本质：q 不
-变，k/v 越来越长。
-
-形状对账：`(B, H, T_new, D) @ (B, H, D, T_full) → (B, H, T_new, T_full)`。
-
-## 「增量 == prefill」属性测试详解
-
-这是判分的灵魂。原理：
-
-```
-prefill 方式：
-    out = sdpa(q[0:T], k[0:T], v[0:T])    # 一次性算 T 步
-    out[-1] 是最后一步的输出
-
-incremental 方式：
-    填好 cache，cache = (k[0:T-1], v[0:T-1])
-    out_last = sdpa_with_kv_cache(q[T-1:T], k[T-1:T], v[T-1:T], k_cache, v_cache)
-```
-
-两者数学上**完全等价**，因为：
-- 最后一步的 query = `q[T-1]`
-- 它能看到的所有 key/value = `k[0:T]` / `v[0:T]`
-- attention 算的就是这一组
-
-不等价就说明 KV cache 实现错了。这是面试官最爱问的「自洽性」测试。
-
-## 易错点
-
-### 1. `dim=-2` vs `dim=2`
-
-如果你硬编码 `dim=2`，对 `(B, H, T, D)` 也对（T 在 axis 2）。但有人写
-GQA / multi-query 时可能改 shape 布局，用相对索引 `-2` 更鲁棒。
-
-### 2. cache 是否要分离 K 和 V
-
-本题用两个 tensor 分开传。也有实现把 K/V 合成一个 5D tensor `(2, B, H, T, D)`
-或一个 dataclass `KVCache(k, v)`。判分会跟参考实现对齐，所以照题面来。
-
-### 3. cache 是否要更新内存
-
-题目让你**返回** new_k_cache（不要求原地 append）。实际工业代码可能用预
-分配的 buffer + index_copy_ 写入，更省内存。本题简化为 `torch.cat`，每
-步重新分配。这对正确性没影响，性能差。
-
-## 跟 Flash Attention 的关系
-
-KV cache 是「inference 时」的优化；Flash Attention 是「training 时」的
-内存优化（分块算 softmax 不暂存大 attention matrix）。两者正交，可以同
-时用 —— 比如 vLLM 就是 KV cache + 类似 flash 的算子。
+5. **延伸**：这里用 `torch.cat` 每步重新分配，简单但有额外开销；工业实现常预分配
+   buffer 再写入。KV cache 和 `pytorch.llm.attention.gqa` 一起用能最大化省显存，
+   底层的裸注意力见 `pytorch.llm.attention.scaled_dot_product_attention`。

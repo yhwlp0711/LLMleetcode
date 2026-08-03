@@ -1,52 +1,63 @@
-# 解题思路：手撕逻辑回归（NumPy）
+# 解题思路：手撕逻辑回归
 
-## 1. 关键数值技巧：稳定的 sigmoid
+## 一句话思路
 
-朴素写法 `1 / (1 + np.exp(-z))` 在 `z = -1000` 时 `exp(1000)` 溢出，得到
-`inf` 然后变成 0；在 `z = 1000` 时 `exp(-1000)` 下溢为 0，结果是 1，看起
-来好像没坏，但梯度会消失。
+逻辑回归（Logistic Regression）在线性回归的基础上加了 sigmoid 激活，把输出
+压到 (0, 1) 当概率，再用二分类交叉熵（Binary Cross-Entropy）作为损失。难点
+有两个：**sigmoid 的数值稳定（numerical stability）**和**梯度的正确推导**。
 
-**等价但稳定的写法**：让 `exp` 的参数永远 ≤ 0。
+## 从直觉到公式
+
+### 模型
+
+先做线性变换 $z = Xw + b$，再用 sigmoid 把它映射到概率：
+
+$$p = \sigma(z) = \frac{1}{1 + e^{-z}}$$
+
+$p$ 表示「样本属于类别 1 的概率」。
+
+### 损失：二分类交叉熵
+
+$$L = -\frac{1}{N}\sum_{i=1}^{N}\bigl[y_i \log p_i + (1 - y_i)\log(1 - p_i)\bigr]$$
+
+直觉：当 $y=1$ 时，我们希望 $p$ 接近 1，这样 $\log p$ 接近 0 → loss 小；
+反之亦然。
+
+### 梯度化简后非常优美
+
+把 $\partial L / \partial z_i$ 展开化简后，会得到一个极为简洁的结果：
+
+$$\frac{\partial L}{\partial z_i} = p_i - y_i$$
+
+继续链式法则求 $w$ 和 $b$：
+
+$$\nabla_w = \frac{1}{N} X^\top (p - y), \quad \nabla_b = \frac{1}{N}\sum_i(p_i - y_i)$$
+
+注意系数是 $1/N$（不是 $2/N$），因为交叉熵公式里没有平方。
+
+### sigmoid 为什么要分支处理？
+
+朴素写法 `1/(1+exp(-z))`，当 $z$ 很负时 `exp(-z)` 巨大 → 溢出（overflow）。
+解决办法：**让 `exp` 的指数永远 ≤ 0**：
+
+- $z \ge 0$：用 $1/(1+e^{-z})$，指数 $-z \le 0$ ✅
+- $z < 0$：用等价形式 $e^z/(1+e^z)$，指数 $z < 0$ ✅
+
+两式分子分母同乘 $e^z$ 即可互换，数学上完全相等。
+
+## 参考实现
 
 ```python
+import numpy as np
+
 def _sigmoid(z):
     out = np.empty_like(z)
     pos = z >= 0
-    out[pos]  = 1.0 / (1.0 + np.exp(-z[pos]))     # 对正 z，exp(-z) ∈ (0, 1]
-    e = np.exp(z[~pos])                            # 对负 z，exp(z) ∈ (0, 1]
+    out[pos] = 1.0 / (1.0 + np.exp(-z[pos]))
+    e = np.exp(z[~pos])
     out[~pos] = e / (1.0 + e)
     return out
-```
 
-数学上 `e^z / (1 + e^z) = 1 / (1 + e^{-z})`，所以两种写法等价。**用** `where`
-**也可以**：
-
-```python
-def _sigmoid(z):
-    abs_z = np.abs(z)
-    return np.where(z >= 0, 1.0 / (1.0 + np.exp(-abs_z)),
-                            np.exp(-abs_z) / (1.0 + np.exp(-abs_z)))
-```
-
-## 2. 梯度推导
-
-二分类交叉熵：
-$L = -\frac{1}{N}\sum\_i [y\_i \log p\_i + (1-y\_i)\log(1-p\_i)]$，其中
-$p\_i = \sigma(z\_i)$，$z\_i = w^\top x\_i + b$。
-
-`dL/dp_i` 与 `dp_i/dz_i = p_i(1-p_i)` 凑一起，得到非常优美的形式：
-
-$$\frac{\partial L}{\partial z\_i} = p\_i - y\_i$$
-
-继续链式求 `w` 和 `b`：
-
-$$\nabla\_w = \frac{1}{N} X^\top (p - y),\quad \nabla\_b = \frac{1}{N}\sum (p - y)$$
-
-**注意**：这里是 `1/N`，不像线性回归是 `2/N`（因为损失里没有平方系数）。
-
-## 3. 参考实现
-
-```python
 def fit_predict_proba(X_train, y_train, X_test, *, lr, epochs):
     N, D = X_train.shape
     w = np.zeros(D, dtype=np.float64)
@@ -55,7 +66,7 @@ def fit_predict_proba(X_train, y_train, X_test, *, lr, epochs):
     for _ in range(epochs):
         z = X_train @ w + b
         p = _sigmoid(z)
-        err = p - y_train
+        err = p - y_train                               # 梯度的核心：p - y
         w -= lr * (X_train.T @ err) / N
         b -= lr * err.sum() / N
 
@@ -63,11 +74,23 @@ def fit_predict_proba(X_train, y_train, X_test, *, lr, epochs):
     return w, float(b), proba_test
 ```
 
-## 4. 易错点
+## 关键点
 
-1. **sigmoid 不稳定** → `nan` 直接传染到梯度，整轮训练崩溃。
-2. **梯度系数搞错**：交叉熵的 `1/N`，不要照搬线性回归的 `2/N`。
-3. **直接对 `log(p)` 求导而不简化**：会做大量重复计算，还容易在 `p` 接近 0
-   或 1 时数值不稳定（`log(0) = -inf`）。手算化简到 `p - y` 再实现。
-4. **预测时返回概率还是标签**：本题要求返回概率，所以是 `proba_test`，不
-   是 `argmax` 后的 0/1。
+1. **sigmoid 分支保证数值安全**：不做分支处理，`z = -1000` 时 `exp(1000)`
+   直接 `inf`，再传播到梯度全变 NaN，整轮训练崩掉。这个技巧和
+   `numpy.ml.linear_regression` 里的线性回归相比是最大的额外难点。
+
+2. **梯度系数是 `1/N` 不是 `2/N`**：交叉熵公式里没有平方那个 $\frac{1}{2}$
+   对消项。照搬线性回归的 `2/N` 会导致有效学习率翻倍，数值不一致。
+
+3. **`p - y` 就是整个反向传播的入口**：这个漂亮的化简省去了分别对 $\log p$
+   和 $\log(1-p)$ 求导的麻烦——一步到位。这也是 sigmoid + cross-entropy
+   组合在理论上的优雅之处。
+
+4. **返回的是概率，不是标签**：`proba_test = sigmoid(X_test @ w + b)`，
+   值域 (0, 1)。如果要 0/1 标签再手动 `(proba > 0.5).astype(int64)`，但
+   本题只要概率。
+
+5. **延伸**：这里的稳定 sigmoid 技巧和 `pytorch.nn.numeric_activations` 里
+   手写 sigmoid 完全一样。梯度下降框架则和 `numpy.ml.linear_regression`
+   共享——只是激活和损失不同。

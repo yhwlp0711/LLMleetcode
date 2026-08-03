@@ -1,31 +1,44 @@
 # 解题思路：按轴 argmax
 
-## 分析
+## 一句话思路
 
-`np.argmax(x, axis=axis)` 在 N 维数组上做的事情，等价于：
+手写 `np.argmax(x, axis=axis)`——沿指定轴找每条「线」上最大值的索引。难点
+不在「找最大」，而在**怎么处理任意维度 + 任意轴**。核心套路：先用 `moveaxis`
+把目标轴搬到最后，压平成 `(B, D)` 的二维形式，再做一趟向量化扫描即可。
 
-1. 把目标轴搬到最后，得到 shape `(..., D)`。
-2. 把前面所有维 flatten 成一个 batch 维，变成 `(B, D)`。
-3. 对每行求最大值的列索引 → 长度 `B` 的一维向量。
-4. reshape 回 `(...,)`（即去掉目标轴的形状）。
+## 拆解思路
 
-第 3 步禁用 `np.argmax`，怎么办？两种向量化思路：
+### 把「任意轴」变成「最后一维」
 
-### 思路 A（推荐）：扫描更新
+沿任意轴做操作很麻烦，因为轴位置不固定。关键观察：**只要把目标轴挪到最后**，
+剩余维度合并成一个「批量」维，就能统一处理。
 
-对每一列 `j = 1, 2, ..., D-1`，比较「当前列的值」和「目前为止的最大值」，
-用 `np.where` 同时更新「最大值」与「对应索引」。这相当于把 `argmax` 的 reduce
-循环手动展开。**注意**：用严格大于 `>`，这样并列时保留更小的索引（题目要求）。
+- `np.moveaxis(x, axis, -1)` —— 得到形状 `(..., D_axis)`。
+- `reshape(-1, D)` —— 前面所有维度压平，变成规整的 `(B, D)` 二维数组。
 
-### 思路 B：flat-argmax 技巧
+现在每一行就是「要在其中找最大下标」的一条数据。
 
-每行加一个「列索引」当 tie-breaker：`x[b, j] * D + (D - 1 - j)`，然后用
-... 但还是要求 `argmax`，反而更绕。**思路 A 更直白。**
+### 向量化扫描：维护「当前最大」
+
+按列从左向右扫（`j = 1, 2, ..., D-1`），对所有行同时维护 `best_val` 和
+`best_idx`。每来一列，比较是否比当前最大更大：
+
+$$\text{better}_r = (\text{col}_r > \text{best\_val}_r)$$
+
+用严格大于 `>`：并列时不更新，自然保留**最早出现**的下标——满足「并列取
+最小索引」的要求。
+
+### 还原形状
+
+扫完后 `best_idx` 长度为 `B`。reshape 回 `moved.shape[:-1]`（去掉目标轴
+后的形状），就和 `np.argmax` 输出一致。
 
 ## 参考实现
 
 ```python
-def argmax_along_axis(x, axis):
+import numpy as np
+
+def argmax_along_axis(x: np.ndarray, axis: int) -> np.ndarray:
     moved = np.moveaxis(x, axis, -1)
     flat = moved.reshape(-1, moved.shape[-1])
     N, D = flat.shape
@@ -34,7 +47,7 @@ def argmax_along_axis(x, axis):
     best_val = flat[:, 0].copy()
     for j in range(1, D):
         col = flat[:, j]
-        better = col > best_val          # 严格大于 → 并列时保留更小索引
+        better = col > best_val             # 严格 >，并列保留更早下标
         best_val = np.where(better, col, best_val)
         best_idx = np.where(better, j, best_idx)
 
@@ -43,9 +56,17 @@ def argmax_along_axis(x, axis):
 
 ## 关键点
 
-1. **`np.moveaxis(x, src, dst)`** 把指定轴搬到目标位置；比 `transpose` 更易读。
-2. **`reshape(-1, D)`** 把所有 batch 维 flatten。`-1` 让 NumPy 自动推断。
-3. **`np.where(cond, a, b)`** 是向量化的三元运算符。
-4. **循环次数是 `D`**（轴长），而不是数据规模；只要轴不太长就完全够快。
-5. **并列处理**：题目说"取最小索引"，所以用 `>`（非 `>=`）。如果反过来要
-   "最大索引"，把 `>` 换成 `>=`。
+1. **`moveaxis` + `reshape` 是处理「任意轴」的通用招式**：把要操作的轴搬到
+   固定位置，其余维度压平成批量维。很多 NumPy 手写题（归约 reduce、排序、
+   扫描）都能用这招把「N 维 + 任意轴」化简成「二维」。
+
+2. **严格 `>` 控制 tie-breaking**：用 `>` 时，后面出现的相等值不会覆盖前面的
+   下标，天然满足「并列取最小索引」。若换成 `>=` 则取到最后一个并列位置。
+   这是靠比较符号就能完成 tie-breaking 的小巧思。
+
+3. **循环只沿 `D` 走，不沿样本走**。外层 `for j in range(D)` 每次用
+   `np.where` 一次性更新所有行——这是向量化（vectorize）的关键，比「对每个
+   样本单独循环找最大」快得多。
+
+4. **延伸**：把 `>` 换成 `<` 就是 `argmin`。KMeans 里给样本分配最近质心
+   （见 `numpy.ml.kmeans`）本质就是沿某个轴做 argmin，思路完全相通。

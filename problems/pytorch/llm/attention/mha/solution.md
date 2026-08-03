@@ -1,108 +1,78 @@
 # 解题思路：Multi-Head Attention（纯函数版）
 
+## 一句话思路
+
+多头注意力（multi-head attention, MHA）就是把输入投影成 Q/K/V 后**切成好几个头
+（head）并行做注意力**，再把各头结果拼回来过一次输出投影。核心是「投影 → 切头
+→ 每头做 SDPA → 合头 → 输出投影」这条流水线，难点全在 reshape/transpose 的顺序
+别搞错。
+
+## 拆解思路
+
+### 为什么要切多头？
+
+单头注意力只有一组「关注模式」，模型只能捕捉单一类型的相关性。多头让模型并行学
+多组不同的关注方式——比如一个头盯语法依赖、一个头盯共指、一个头盯主题。每个头维
+度小（`head_dim = D / num_heads`），所以总计算量不变，但表达力大大增强。
+
+### 五步流水线
+
+1. **投影**：`q = x @ W_q`，K、V 同理，形状都是 `(B, T, D)`。
+2. **切头**：把 `D` 维拆成 `num_heads × head_dim`，reshape 到
+   `(B, T, num_heads, head_dim)`，再 transpose 到 `(B, num_heads, T, head_dim)`，
+   让「头」维排到前面，每个头就能独立算注意力。
+3. **每头做 SDPA**（见 `pytorch.llm.attention.scaled_dot_product_attention`）：
+
+$$\text{softmax}\!\left(\frac{QK^\top}{\sqrt{\text{head\_dim}}} + \text{Mask}\right)V$$
+
+4. **合头**：transpose 回 `(B, T, num_heads, head_dim)`，再 reshape 成 `(B, T, D)`。
+5. **输出投影**：`out @ W_o`，形状 `(B, T, D)`。
+
 ## 参考实现
 
 ```python
-from math import sqrt
 import torch.nn.functional as F
+from math import sqrt
 
 def mha(x, W_q, W_k, W_v, W_o, num_heads, mask=None):
     B, T, D = x.shape
     head_dim = D // num_heads
 
-    # 1. Q/K/V 投影
-    q = x @ W_q                                       # (B, T, D)
-    k = x @ W_k
-    v = x @ W_v
+    q, k, v = x @ W_q, x @ W_k, x @ W_v          # 投影，都是 (B, T, D)
 
-    # 2. 切分多头：(B, T, D) → (B, T, H, head_dim) → (B, H, T, head_dim)
-    def split(t):
+    def split(t):                                 # (B,T,D) → (B,H,T,head_dim)
         return t.reshape(B, T, num_heads, head_dim).transpose(1, 2)
     q, k, v = split(q), split(k), split(v)
 
-    # 3. SDPA per head
-    scores = q @ k.transpose(-2, -1) / sqrt(head_dim)
+    scores = q @ k.transpose(-2, -1) / sqrt(head_dim)  # 缩放用 head_dim
     if mask is not None:
         scores = scores.masked_fill(~mask, float("-inf"))
     attn = F.softmax(scores, dim=-1)
-    out = attn @ v                                    # (B, H, T, head_dim)
+    out = attn @ v                                # (B, H, T, head_dim)
 
-    # 4. 合并多头：(B, H, T, head_dim) → (B, T, H, head_dim) → (B, T, D)
-    out = out.transpose(1, 2).reshape(B, T, D)
-
-    # 5. 输出投影
+    out = out.transpose(1, 2).reshape(B, T, D)    # 先 transpose 再 reshape
     return out @ W_o
 ```
 
-## 形状变换图
+## 关键点
 
-```
-x:               (B, T, D)
-  └─ @ W_q ────→ q: (B, T, D)
-      └─ reshape (B, T, H, d_h)
-          └─ transpose(1,2) → q': (B, H, T, d_h)
-                  ↓
-              [SDPA]
-                  ↓
-          out: (B, H, T, d_h)
-          └─ transpose(1,2) → (B, T, H, d_h)
-              └─ reshape (B, T, D)
-                  └─ @ W_o → 输出: (B, T, D)
-```
+1. **切头：先 reshape 再 transpose，顺序不能反**。reshape 只是重新解释同一块内
+   存，把 `D` 拆成 `(num_heads, head_dim)`；transpose 再把「头」维换到前面。如果
+   先 transpose 成 `(B, D, T)` 再 reshape，每行的元素就被打散了，结果全错。
 
-## 关键技巧
+2. **合头：必须先 transpose 再 reshape**。直接 `out.reshape(B, T, D)` 会把不同
+   头的特征沿 token 维交错在一起。要先 `transpose(1, 2)` 把头维换回 `T` 后面。另
+   外 transpose 后的张量在内存里不连续（non-contiguous），`.view()` 会报错，用
+   `.reshape()`（它会自动处理连续性）。
 
-### 1. 切分多头：`reshape` + `transpose` 的顺序
+3. **缩放因子是 `sqrt(head_dim)`，不是 `sqrt(D)`**。每个头独立做注意力，key 维
+   度是 `head_dim = D / num_heads`。用错了形状对但数值偏，attention 分布会失准。
 
-```python
-t.reshape(B, T, H, d_h).transpose(1, 2)
-# (B, T, D) → (B, T, H, d_h) → (B, H, T, d_h)
-```
+4. **mask 广播到 `(B, num_heads, T, T)`**。题目常给 `(B, 1, T, T)`，第二维为 1
+   让所有头共享同一份 mask（典型 causal / padding 用法，见
+   `pytorch.llm.attention.causal_mask`）。`masked_fill(~mask, -inf)` 把 False 位
+   置屏蔽。
 
-**为什么要先 reshape 再 transpose？** reshape 不改变内存布局，只重新解释；
-transpose 改变 stride，让最后两维变成 `(T, d_h)`，正好是 SDPA 期望的输
-入。
-
-**反过来不行**：先 `transpose(1, 2)` 把 `(B, T, D)` 变成 `(B, D, T)`，再
-reshape 出来就是错的（每行的元素被打散了）。这是新手常踩的坑。
-
-### 2. 合并多头：必须先 transpose 再 reshape
-
-```python
-out = out.transpose(1, 2).reshape(B, T, D)
-```
-
-直接 `out.reshape(B, T, D)` 会把多个 head 的特征**沿 token 维度交错**起
-来，完全错误。一定要先 transpose 把 H 和 T 换回来。
-
-**踩坑警示**：`transpose` 后的张量是 non-contiguous，`.view()` 会报错。
-用 `.reshape()`（PyTorch 会自动 `.contiguous().view()`）。
-
-### 3. `sqrt(head_dim)` 不是 `sqrt(D)`
-
-SDPA 里的缩放因子是「key 维度」，单头是 `D`，多头时每头的 key 维度是
-`head_dim = D / H`。**用错了会导致 attention 分布偏离最优**，虽然形状对
-但数值差。
-
-### 4. mask 的 shape
-
-mask 要能广播到 `(B, H, T, T)`。题目用 `(B, 1, T, T)` —— 第二维设为 1，
-让所有 head 共享同一份 mask（典型的 causal / padding mask 用法）。
-
-## 为什么要切分多头？
-
-单头注意力的「注意力分布」只有一组，模型只能捕捉单一类型的相关性
-（比如「指代消歧」一种关系）。多头让模型并行学多组不同的「关注模式」：
-
-- Head 1 可能关注语法依赖
-- Head 2 可能关注共指
-- Head 3 可能关注主题
-- ...
-
-每个 head 维度小（`d_h = D/H`），所以总参数量不变；但表达力大大增强。
-
-## Pattern A vs Pattern B
-
-本题是 Pattern A（纯函数，权重外部给）。Pattern B 版本（`class MHA(nn.Module)`，
-自己定义 `q_proj`、`k_proj` 等 `nn.Linear`）暂时没出，留作进阶。两者算法
-一模一样，只是工程封装不同。
+5. **延伸**：MHA 里 Q/K/V 头数相同（1:1）。让多个 Q 头共享少量 K/V 头能省显存，
+   这就是 `pytorch.llm.attention.gqa`；把它拼进完整 decoder 层见
+   `pytorch.llm.blocks.transformer_block`。

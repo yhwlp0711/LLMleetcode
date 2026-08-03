@@ -1,118 +1,108 @@
 # 解题思路：Beam Search
 
-## 抽象 LM 的设计思路
+## 一句话思路
 
-为了让题目「快速可验证」，**「模型」是个函数**而非真实 LLM：
+集束搜索（beam search）同时维护 `beam_size` 个候选序列，每步把它们各自扩展到所有
+可能的下一个 token，按**累积 log 概率**排序，只保留最好的 `beam_size` 个，其余剪
+枝。核心是「扩展 → 打平 → 取 top-k → 还原是哪个 beam 选了哪个 token」这套向量化操
+作。
 
-```python
-def model_fn(input_ids: Tensor) -> Tensor:
-    """ids (B, T) -> next-token logits (B, V)"""
-```
+## 拆解思路
 
-判分时传入一个**确定性查表函数**（logits 只依赖最后一个 token），这样：
-- 运行快（一次矩阵索引）
-- 完全可复现（无随机）
-- 但足够测出解码逻辑的对错
+### 「模型」是一个函数
 
-## Beam Search
+和 `pytorch.llm.decoding.greedy_decode` 一样，题目把 LLM 抽象成确定性的
+`model_fn`：喂 `input_ids`，返回下一个 token 的 logits。快、可复现，又能测出解码逻
+辑对不对。
 
-Beam search 同时维护 `k` 个候选序列，每步扩展再剪枝。
+### 为什么用累积 log 概率
 
-### 算法骨架
+一个序列的概率是每步概率连乘。概率相乘容易下溢（underflow），所以取对数把连乘变成
+连加：序列 score = 每步 `log_softmax` 之和。贪心只顾当下最优，beam search 保留多个
+候选，能在后面「反悔」，找到整体概率更高的序列。
 
-```
-初始化:
-    用 prompt 跑一次 → 取 top-k 作为初始 beams
-    每个 beam 的 score = log_prob(token)
+### 每步在做什么
 
-每步:
-    1. 对所有 k 个 beams 各调用 model_fn → (k, V) logits
-    2. 计算累积 score: cand_scores[i, j] = scores[i] + log_p[i, j]
-    3. flatten 到 (k * V,)，取 top-k → 得到 (beam_idx, token_idx) 对
-    4. 用 beam_idx 重排现有 beams，append token_idx
-    5. 更新 finished mask（碰到 eos 的 beam）
+1. 对当前 `beam_size` 个 beam 各调一次 `model_fn`，得到 `(beam_size, V)` 的
+   `log_softmax`。
+2. 累加：`候选score[i, j] = 旧score[i] + log_p[i, j]`，形状 `(beam_size, V)`。
+3. 把它**打平**成 `(beam_size * V,)`，取全局 top-`beam_size`。
+4. 用整数除法/取模还原：`beam_idx = topi // V`（来自哪个旧 beam）、
+   `token_idx = topi % V`（选了哪个 token）。
+5. 用 `beam_idx` 重排 beam 并拼上 `token_idx`。
 
-终止:
-    所有 beams finished 或 步数到 max_len
-返回:
-    用「长度归一化 score」选最优 beam
-```
+### 已结束的 beam 怎么办
 
-### 关键技巧
+某个 beam 生成了 `eos` 就算结束，不该再扩展。技巧：把已结束 beam 的下一步 logits
+改成「eos 位置 = 0、其余 = $-\infty$」，这样它只能「继续选 eos」、score 保持不变，
+既不干扰活着的 beam，也不会被错误延长。
 
-#### 1. `flat.topk(k)` + 整数除法/取模 拆解 (beam, token)
+### 长度归一化
 
-```python
-flat = cand_scores.view(-1)                # (k * V,)
-topv, topi = flat.topk(beam_size)
-beam_idx = topi // V                        # 哪个原 beam
-token_idx = topi % V                        # 选了哪个 token
-```
+累积 log 概率每步都在减小，直接比会偏袒短序列。所以用 `score / length`（平均每
+token 的 log 概率）来挑最终最优 beam，更公平。
 
-这是 beam search 最经典的 trick —— **不显式构造 (k, V) 索引网格，靠
-flatten + 除法还原**。代码 3 行，全向量化。
-
-#### 2. 已结束的 beam 怎么处理？
-
-要避免它们被「再次选中并 append 错误 token」。两个常见做法：
-
-**做法 A（本题用的）**：把已 finished beam 的 logits 改成「eos=0, 其他=-inf」，
-这样它们「只能继续选 eos」，score 不变。
+## 参考实现
 
 ```python
-masked_log_p = log_p.clone()
-if finished.any():
-    masked_log_p[finished] = float("-inf")
-    masked_log_p[finished, eos_id] = 0.0
+import torch
+import torch.nn.functional as F
+
+def beam_search(model_fn, input_ids, max_len, beam_size, eos_id):
+    # 初始化：用 prompt 跑一次，取 top-k 当初始 beams
+    logits = model_fn(input_ids)                      # (1, V)
+    log_probs = F.log_softmax(logits[0], dim=-1)      # (V,)
+    topv, topi = log_probs.topk(beam_size)
+    beams = torch.cat([input_ids.expand(beam_size, -1), topi.unsqueeze(1)], dim=1)
+    scores = topv                                     # 累积 log-prob
+    finished = topi == eos_id                         # 初始就可能是 eos
+    lengths = torch.ones(beam_size, dtype=torch.long)
+
+    for step in range(1, max_len):
+        if finished.all():
+            break
+        log_p = F.log_softmax(model_fn(beams), dim=-1)  # (K, V)
+        V = log_p.shape[-1]
+
+        masked_log_p = log_p.clone()                  # 已结束 beam：只能续 eos
+        if finished.any():
+            masked_log_p[finished] = float("-inf")
+            masked_log_p[finished, eos_id] = 0.0
+
+        cand = scores.unsqueeze(1) + masked_log_p     # (K, V) 累积候选
+        topv, topi = cand.view(-1).topk(beam_size)    # 打平取全局 top-k
+        beam_idx = topi // V                          # 来自哪个 beam
+        token_idx = topi % V                          # 选了哪个 token
+
+        beams = torch.cat([beams[beam_idx], token_idx.unsqueeze(1)], dim=1)
+        scores = topv
+
+        was_finished = finished[beam_idx]
+        finished = was_finished | ((token_idx == eos_id) & ~was_finished)
+        lengths = lengths[beam_idx] + (~was_finished).long()  # 活着才 +1
+
+    norm_scores = scores / lengths.float().clamp(min=1)       # 长度归一化
+    return beams[norm_scores.argmax() : norm_scores.argmax() + 1]
 ```
 
-这样它们的 cand_scores 等于 (旧 score + 0) = 旧 score；token 永远是 eos。
-活的 beam 不受影响。
+## 关键点
 
-**做法 B**：把 finished beam 从候选池里完全排除，单独维护「已完成」列表，
-结束时合并。代码更复杂，但是某些 HF 实现方式。
+1. **打平 + 除法/取模是 beam search 的核心 trick**。把 `(beam_size, V)` 候选拉成一
+   维取 top-k，再用 `topi // V` 和 `topi % V` 还原出「哪个 beam、哪个 token」，全
+   程向量化，不用手写索引网格。
 
-#### 3. 长度归一化
+2. **累积 score 用 log 概率相加**。`F.log_softmax` 把每步概率取对数，序列 score 就
+   是逐步累加，避免概率连乘的下溢。
 
-```python
-norm_scores = scores / lengths.float().clamp(min=1)
-best = norm_scores.argmax()
-```
+3. **已结束 beam 冻结处理**。把它们的下一步 logits 设成「eos=0、其余 $-\infty$」，
+   score 不变、只能续 eos，从而不打扰活着的 beam。初始 top-k 里若已有 eos，也要在
+   初始化时标记 `finished`。
 
-**为什么需要？** 长度长的序列累积 log-prob 自然更小（每步都减去一个正数），
-直接 argmax 偏好短序列。除以 length 后比较「平均每 token log-prob」，更公平。
+4. **`lengths` 只对「实际新增 token」的 beam 累加**：`lengths[beam_idx] +
+   (~was_finished)`。已结束的 beam 长度不再增长，长度归一化才公平。
 
-更高级的做法是 length penalty `length^alpha`（alpha < 1），但本题简化用
-`length^1`。
+5. **重排 beam 用 `beams[beam_idx]`**。top-k 可能让多个新 beam 来自同一个旧 beam，
+   用 `beam_idx` 做花式索引正好复制/丢弃对应的历史。
 
-## 易错点
-
-### 1. 初始 beam 也可能是 eos
-
-如果第一步取的 top-k 里有 eos token，对应 beam 一开始就是 finished。要在
-初始化时也更新 `finished` mask，不然下一步它还会被错误扩展。
-
-### 2. `lengths` 的累加规则
-
-只有「这一步实际增加了新 token」（即 beam 没 finished）的才 `length += 1`。
-已 finished 的 beam length 不变。
-
-```python
-lengths = lengths[beam_idx] + (~was_finished).long()
-```
-
-这是把所有逻辑揉到一个向量化表达里的精髓。
-
-## 为什么 Beam Search 仍然有人考？
-
-虽然 LLM 推理时主流是 sampling（greedy/top-k/top-p），但：
-
-- **机器翻译 / Seq2Seq 任务**：beam search 仍然是标准做法
-- **长答案生成**：beam 能避免局部贪心导致的低质量结尾
-- **面试观察点**：beam search 把「调度逻辑」考得很全 —— 队列管理、向量
-  化、边界处理，是综合能力测试题
-
-## 性能
-
-每步 O(k · V) for top-k；总 O(max_len · k · V)。对小 V/k 极快。
-真实 LLM（V = 50k+）会用更聪明的剪枝（GPU 友好的 topk on flat tensor）。
+6. **延伸**：`beam_size == 1` 时 beam search 退化成 `pytorch.llm.decoding.greedy_decode`。
+   想要多样性、带随机的解码则用 `pytorch.llm.decoding.top_k_top_p_sampling`。
