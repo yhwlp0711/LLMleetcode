@@ -23,7 +23,7 @@
 按列从左向右扫（`j = 1, 2, ..., D-1`），对所有行同时维护 `best_val` 和
 `best_idx`。每来一列，比较是否比当前最大更大：
 
-$$\text{better}_r = (\text{col}_r > \text{best\_val}_r)$$
+$$\text{better}_r = (\text{col}_r > \text{bestval}_r)$$
 
 用严格大于 `>`：并列时不更新，自然保留**最早出现**的下标——满足「并列取
 最小索引」的要求。

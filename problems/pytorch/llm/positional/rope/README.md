@@ -20,8 +20,8 @@ def build_rope_cache(seq_len: int, head_dim: int, base: float = 10000.0
 
 对每对特征索引 `(2i, 2i+1)`（`i = 0, 1, ..., head_dim/2 - 1`）和位置 `m`：
 
-- 频率：$\theta\_i = 1 / \text{base}^{2i / \text{head\\_dim}}$
-- 角度：$m \cdot \theta\_i$
+- 频率：$\theta_i = 1 / \text{base}^{2i / d}$（$d$ = head_dim）
+- 角度：$m \cdot \theta_i$
 
 cos/sin 表里 `cos[m, 2i] = cos[m, 2i+1] = cos(m * θ_i)`（成对复制相同值），
 sin 同理。这样旋转就是一个 elementwise 乘法。

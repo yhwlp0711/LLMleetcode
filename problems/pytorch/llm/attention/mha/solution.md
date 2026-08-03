@@ -21,9 +21,10 @@
 2. **切头**：把 `D` 维拆成 `num_heads × head_dim`，reshape 到
    `(B, T, num_heads, head_dim)`，再 transpose 到 `(B, num_heads, T, head_dim)`，
    让「头」维排到前面，每个头就能独立算注意力。
-3. **每头做 SDPA**（见 `pytorch.llm.attention.scaled_dot_product_attention`）：
+3. **每头做 SDPA**（见 `pytorch.llm.attention.scaled_dot_product_attention`），
+   其中 $d_k$ 是每个头的维度 head_dim：
 
-$$\text{softmax}\!\left(\frac{QK^\top}{\sqrt{\text{head\_dim}}} + \text{Mask}\right)V$$
+$$\text{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}} + \text{Mask}\right)V$$
 
 4. **合头**：transpose 回 `(B, T, num_heads, head_dim)`，再 reshape 成 `(B, T, D)`。
 5. **输出投影**：`out @ W_o`，形状 `(B, T, D)`。

@@ -17,9 +17,9 @@ token 离多远」，不需要额外的相对位置 bias。
 
 ### 频率设计
 
-对第 $i$ 对特征（$i = 0, 1, \dots, \text{head\_dim}/2 - 1$）：
+对第 $i$ 对特征（$i = 0, 1, \dots, d/2 - 1$，$d$ = head_dim）：
 
-$$\theta_i = \frac{1}{\text{base}^{\,2i / \text{head\_dim}}}$$
+$$\theta_i = \frac{1}{\text{base}^{\,2i / d}}$$
 
 低维 $i$ 对应高频率（快速旋转，捕捉短距离），高维 $i$ 对应低频率（慢速旋转，覆
 盖长距离）。`base=10000` 是来自原始 Transformer 的经验值。
@@ -37,7 +37,7 @@ $$\text{out}[\ldots, 2i+1] = x_{2i+1} \cos\phi + x_{2i} \sin\phi$$
 向量化的优雅做法：构造一个「负旋转」张量 `x_rotated`，其中每对 $(a, b)$ 变成
 $(-b, a)$（绕原点逆时针转 90°），然后：
 
-$$\text{out} = x \cdot \cos + \text{x\_rotated} \cdot \sin$$
+$$\text{out} = x \cdot \cos + x_{\text{rot}} \cdot \sin$$
 
 一次 elementwise 乘法完成全部旋转。
 
