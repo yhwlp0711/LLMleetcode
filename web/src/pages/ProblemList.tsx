@@ -61,9 +61,25 @@ export default function ProblemList() {
   useEffect(() => {
     if (!problems.length) return
     const saved = sessionStorage.getItem('problemListScroll')
-    if (saved) {
-      requestAnimationFrame(() => window.scrollTo(0, parseInt(saved, 10)))
+    const target = saved ? parseInt(saved, 10) : 0
+    if (!target) return
+    // The list renders after async data arrives and its height grows across a
+    // few frames (problems + status). Retry the scroll restore until the page
+    // is tall enough to reach the target (or we run out of attempts).
+    let tries = 0
+    let raf = 0
+    const restore = () => {
+      window.scrollTo(0, target)
+      tries += 1
+      const reached = Math.abs(window.scrollY - target) < 2
+      const canScrollFurther =
+        document.documentElement.scrollHeight - window.innerHeight >= target
+      if (!(reached || canScrollFurther) && tries < 30) {
+        raf = requestAnimationFrame(restore)
+      }
     }
+    raf = requestAnimationFrame(restore)
+    return () => cancelAnimationFrame(raf)
   }, [problems.length])
 
   const grouped = problems.reduce((acc, p) => {
