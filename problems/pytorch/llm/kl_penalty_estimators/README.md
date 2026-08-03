@@ -43,6 +43,7 @@ def kl_k3(logp: torch.Tensor, logp_ref: torch.Tensor) -> torch.Tensor:
 ## 说明
 
 - 输入是任意同 shape 的 `torch.float32`，返回同 shape 的逐元素估计（**不要** mean/sum）。
-- 三者都用 `logr = logp_ref - logp` 这一方向。
+- 三者都用 `logr = logp_ref - logp` 这一方向；三个估计器都在估计 **`KL(π ‖ π_ref)`**
+  （不是反向的 `KL(π_ref ‖ π)`）——因为 $\mathbb{E}_\pi[-\text{logr}] = KL(\pi\|\pi_{\text{ref}})$。
 - k3 是 trl / DeepSeek 等实现里 GRPO/PPO 默认用的估计器。
 - 容差 `atol=1e-6`。

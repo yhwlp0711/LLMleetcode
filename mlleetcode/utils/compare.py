@@ -23,8 +23,10 @@ def _to_tensor(x: Any) -> torch.Tensor:
     if isinstance(x, torch.Tensor):
         return x.detach().cpu()
     if isinstance(x, np.ndarray):
-        return torch.from_numpy(x)
-    if isinstance(x, (int, float, list, tuple)):
+        return torch.from_numpy(np.ascontiguousarray(x))
+    if isinstance(x, np.generic):  # numpy scalar (np.float64, np.int64, np.bool_, ...)
+        return torch.tensor(x.item())
+    if isinstance(x, (bool, int, float, list, tuple)):
         return torch.tensor(x)
     raise TypeError(f"Unsupported type for comparison: {type(x).__name__}")
 

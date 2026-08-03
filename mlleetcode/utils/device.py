@@ -1,4 +1,5 @@
 """Device selection: prefer CUDA, then MPS, then CPU."""
+
 from __future__ import annotations
 
 import torch
@@ -13,7 +14,10 @@ def get_device() -> torch.device:
 
 
 def device_tolerance(device, atol: float, rtol: float) -> tuple[float, float]:
-    """MPS fp32 precision is slightly lower than CUDA/CPU; relax tolerance a bit."""
-    if device is not None and getattr(device, "type", None) == "mps":
+    """GPU fp32 accumulation order differs from CPU, so relax overly tight
+    tolerances a bit on non-CPU devices to avoid false negatives on otherwise
+    correct submissions."""
+    dev_type = getattr(device, "type", None) if device is not None else None
+    if dev_type in ("mps", "cuda"):
         return max(atol, 1e-5), max(rtol, 1e-4)
     return atol, rtol
