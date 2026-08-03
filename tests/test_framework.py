@@ -71,7 +71,7 @@ def test_registry_ambiguous_slug_raises():
 def test_registry_acronym_match():
     # 'sdpa' should match 'scaled_dot_product_attention'
     p = find_problem("sdpa")
-    assert p.id == "pytorch.llm.scaled_dot_product_attention"
+    assert p.id == "pytorch.llm.attention.scaled_dot_product_attention"
 
 
 def test_registry_prefix_filter():

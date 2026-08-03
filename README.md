@@ -90,22 +90,22 @@ mlleetcode solution mha     # 看中文解析 + 参考答案
 | `pytorch.nn.cross_entropy` | easy | 稳定 CE from logits + ignore_index |
 | `pytorch.nn.bce_with_logits` | easy | 稳定 BCE with logits |
 | `pytorch.nn.kl_divergence` | easy | forward KL from logits |
-| `pytorch.llm.causal_mask` | easy | 因果 + padding mask 构造 |
-| `pytorch.llm.sinusoidal_pe` | easy | 经典 sin/cos 位置编码 |
-| `pytorch.llm.scaled_dot_product_attention` | easy | 注意力核心算子 |
-| `pytorch.llm.mha` | medium | 多头注意力（纯函数） |
-| `pytorch.llm.gqa` | medium | Grouped-Query Attention |
-| `pytorch.llm.kv_cache` | medium | 带 KV Cache 的 SDPA |
-| `pytorch.llm.rope` | medium | RoPE：建表 + 旋转 |
-| `pytorch.llm.top_k_top_p_sampling` | medium | 温度 + top-k + nucleus |
-| `pytorch.llm.greedy_decode` | easy | Greedy 解码 |
-| `pytorch.llm.beam_search` | medium | Beam Search + 长度归一化 |
-| `pytorch.llm.swiglu_ffn` | medium | LLaMA 风格 FFN |
-| `pytorch.llm.transformer_block` | hard | 完整 LLaMA block（集成题） |
-| `pytorch.llm.dpo_loss` | medium | DPO 偏好损失（logsigmoid） |
-| `pytorch.llm.ppo_clip_loss` | hard | KL 惩罚 + GAE 优势 + PPO 裁剪损失 |
-| `pytorch.llm.grpo_loss` | medium | GRPO 组内优势 + PPO 裁剪 |
-| `pytorch.llm.kl_penalty_estimators` | medium | KL 估计器 k1 / k2 / k3 |
+| `pytorch.llm.attention.causal_mask` | easy | 因果 + padding mask 构造 |
+| `pytorch.llm.attention.scaled_dot_product_attention` | easy | 注意力核心算子 |
+| `pytorch.llm.attention.mha` | medium | 多头注意力（纯函数） |
+| `pytorch.llm.attention.gqa` | medium | Grouped-Query Attention |
+| `pytorch.llm.attention.kv_cache` | medium | 带 KV Cache 的 SDPA |
+| `pytorch.llm.positional.sinusoidal_pe` | easy | 经典 sin/cos 位置编码 |
+| `pytorch.llm.positional.rope` | medium | RoPE：建表 + 旋转 |
+| `pytorch.llm.blocks.swiglu_ffn` | medium | LLaMA 风格 FFN |
+| `pytorch.llm.blocks.transformer_block` | hard | 完整 LLaMA block（集成题） |
+| `pytorch.llm.decoding.greedy_decode` | easy | Greedy 解码 |
+| `pytorch.llm.decoding.beam_search` | medium | Beam Search + 长度归一化 |
+| `pytorch.llm.decoding.top_k_top_p_sampling` | medium | 温度 + top-k + nucleus |
+| `pytorch.llm.loss.dpo_loss` | medium | DPO 偏好损失（logsigmoid） |
+| `pytorch.llm.loss.ppo_clip_loss` | hard | KL 惩罚 + GAE 优势 + PPO 裁剪损失 |
+| `pytorch.llm.loss.grpo_loss` | medium | GRPO 组内优势 + PPO 裁剪 |
+| `pytorch.llm.loss.kl_penalty_estimators` | medium | KL 估计器 k1 / k2 / k3 |
 
 </details>
 

@@ -56,5 +56,5 @@ KL 里有 $\log p_c$ 和 $\log q_c$。直接 `p * log(p/q)` 在 `q_c` 很小时�
 
 本题算的是**有完整分布**时的精确 KL（`Σ p·(log p−log q)`）。但在 RL/RLHF 里
 分布是采样出来的 token，拿不到完整分布，只有 `logπ`、`logπ_ref` 两个标量，
-此时用**单样本估计器** k1/k2/k3（见 `pytorch.llm.kl_penalty_estimators`）。
+此时用**单样本估计器** k1/k2/k3（见 `pytorch.llm.loss.kl_penalty_estimators`）。
 两者是「精确值」与「MC 估计」的关系。

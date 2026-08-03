@@ -44,7 +44,7 @@ weights). The judge constructs the inputs deterministically and feeds the same
 tensors to both the user and the reference. **Zero randomness in the user's
 code.**
 
-Example: `pytorch.llm.scaled_dot_product_attention` —
+Example: `pytorch.llm.attention.scaled_dot_product_attention` —
 `sdpa(q, k, v, mask) -> output`.
 
 This is the cleanest pattern — no init-order ambiguity, no parameter-naming

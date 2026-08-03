@@ -4,7 +4,7 @@ Problems are identified by a dotted slug-path derived from their directory under
 problems/. For example:
 
     problems/numpy/ml/linear_regression/   ->  id = "numpy.ml.linear_regression"
-    problems/pytorch/llm/mha/              ->  id = "pytorch.llm.mha"
+    problems/pytorch/llm/attention/mha/     ->  id = "pytorch.llm.attention.mha"
 
 A problem directory is any directory that contains a meta.yaml.
 """
@@ -23,7 +23,7 @@ _WORKSPACE_SEP = "__"
 
 @dataclass
 class Problem:
-    id: str  # dotted slug-path, e.g. "pytorch.llm.mha"
+    id: str  # dotted slug-path, e.g. "pytorch.llm.attention.mha"
     slug: str  # leaf dir name, e.g. "mha"
     category: str  # parent path joined by "." e.g. "pytorch.llm"
     title: str
