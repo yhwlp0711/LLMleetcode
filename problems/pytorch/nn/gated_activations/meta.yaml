@@ -1,0 +1,6 @@
+title: "门控激活函数（SwiGLU / GeGLU）"
+difficulty: easy
+framework: pytorch
+tags: [nn, activations, gated, llm]
+timeout: 5
+entrypoint: multiple

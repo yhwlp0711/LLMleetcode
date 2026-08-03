@@ -1,0 +1,6 @@
+title: "数值稳定的 Sigmoid / Softmax"
+difficulty: easy
+framework: pytorch
+tags: [nn, activations, numerical-stability, llm]
+timeout: 5
+entrypoint: multiple

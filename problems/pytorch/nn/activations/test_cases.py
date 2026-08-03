@@ -33,21 +33,8 @@ def _extreme():
     return torch.tensor([-50.0, -5.0, -1.0, 0.0, 1.0, 5.0, 50.0])
 
 
-# ---- Single-input activations ---------------------------------------------
-
-
 def _check_single(user_fn, ref_fn, x):
     return user_fn(x.clone()), ref_fn(x.clone())
-
-
-# ---- Gated activations ----------------------------------------------------
-
-
-def _check_gated(user_fn, ref_fn, x, gate):
-    return user_fn(x.clone(), gate.clone()), ref_fn(x.clone(), gate.clone())
-
-
-# ---- Cross-checks against PyTorch's built-ins (extra safety net) ----------
 
 
 def _check_against_torch_builtin(user_fn, builtin, x):
@@ -117,96 +104,5 @@ TEST_CASES = [
         weight=1.0,
         atol=1e-6,
         rtol=1e-6,
-    ),
-    # --- SwiGLU ---
-    TestCase(
-        name="swiglu / order check (SiLU on `gate`, not `x`)",
-        runner=lambda m: _check_gated(
-            m.swiglu, _REF.swiglu, _typical((4, 8), 6), _typical((4, 8), 7)
-        ),
-        weight=2.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    TestCase(
-        name="swiglu / 3D shape (B, T, D)",
-        runner=lambda m: _check_gated(
-            m.swiglu, _REF.swiglu, _typical((2, 5, 8), 8), _typical((2, 5, 8), 9)
-        ),
-        weight=1.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    # --- GeGLU ---
-    TestCase(
-        name="geglu / order check",
-        runner=lambda m: _check_gated(
-            m.geglu, _REF.geglu, _typical((4, 8), 10), _typical((4, 8), 11)
-        ),
-        weight=2.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    # --- Sigmoid ---
-    TestCase(
-        name="sigmoid / typical values",
-        runner=lambda m: _check_single(m.sigmoid, _REF.sigmoid, _typical((4, 8), 20)),
-        weight=1.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    TestCase(
-        name="sigmoid / extreme values (stability)",
-        runner=lambda m: _check_single(m.sigmoid, _REF.sigmoid, _extreme()),
-        weight=1.0,
-        atol=1e-5,
-        rtol=1e-5,
-    ),
-    TestCase(
-        name="sigmoid / matches torch.sigmoid",
-        runner=lambda m: _check_against_torch_builtin(
-            m.sigmoid, torch.sigmoid, _typical((6, 8), 21)
-        ),
-        weight=1.0,
-    ),
-    # --- Softmax ---
-    TestCase(
-        name="softmax / dim=-1",
-        runner=lambda m: (
-            m.softmax(_typical((4, 8), 30), dim=-1),
-            _REF.softmax(_typical((4, 8), 30), dim=-1),
-        ),
-        weight=1.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    TestCase(
-        name="softmax / dim=0",
-        runner=lambda m: (
-            m.softmax(_typical((4, 8), 31), dim=0),
-            _REF.softmax(_typical((4, 8), 31), dim=0),
-        ),
-        weight=1.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    TestCase(
-        name="softmax / extreme values (stability)",
-        runner=lambda m: (
-            m.softmax(torch.tensor([[1000.0, 1.0, -1000.0]]), dim=-1),
-            _REF.softmax(torch.tensor([[1000.0, 1.0, -1000.0]]), dim=-1),
-        ),
-        weight=1.0,
-        atol=1e-6,
-        rtol=1e-6,
-    ),
-    TestCase(
-        name="softmax / matches F.softmax",
-        runner=lambda m: _check_against_torch_builtin(
-            lambda t: m.softmax(t, dim=-1),
-            lambda t: F.softmax(t, dim=-1),
-            _typical((6, 8), 32),
-        ),
-        weight=1.0,
     ),
 ]

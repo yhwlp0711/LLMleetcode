@@ -1,4 +1,4 @@
-title: "激活函数"
+title: "激活函数（SiLU / GELU）"
 difficulty: easy
 framework: pytorch
 tags: [nn, activations, llm]
