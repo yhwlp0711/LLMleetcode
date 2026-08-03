@@ -23,16 +23,16 @@ export default function ProblemDetail() {
 
   useEffect(() => {
     if (!id) return
-    fetchProblem(id).then(p => {
+    Promise.all([
+      fetchProblem(id),
+      fetchProblems(),
+    ]).then(([p, ps]) => {
       setProblem(p)
+      setProblemIds(new Set(ps.map(x => x.id)))
       const saved = localStorage.getItem(`code:${p.id}`)
       setCode(saved ?? p.starter)
     })
   }, [id])
-
-  useEffect(() => {
-    fetchProblems().then(ps => setProblemIds(new Set(ps.map(p => p.id))))
-  }, [])
 
   // Turn inline `<problem_id>` code spans into clickable links to that problem,
   // and inline `<api>` code spans into hoverable tooltips showing API docs.
