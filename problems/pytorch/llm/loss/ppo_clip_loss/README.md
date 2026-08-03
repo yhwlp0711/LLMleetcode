@@ -30,17 +30,29 @@ def ppo_clip_loss(
 
 用 **k3 估计器**（`logr = logp_ref - logp`）逐 token 估计 KL，从 reward 里减掉：
 
-$$\text{kl}_t = e^{\text{logr}_t} - 1 - \text{logr}_t, \qquad r_t' = r_t - \beta\cdot\text{kl}_t$$
+$$
+\text{kl}_t = e^{\text{logr}_t} - 1 - \text{logr}_t, \qquad r_t' = r_t - \beta\cdot\text{kl}_t
+$$
 
 ### 步骤 2：GAE 计算优势（用 `r'`）
 
-$$\delta_t = r_t' + \gamma\,V(s_{t+1})\,(1 - \text{done}_t) - V(s_t)$$
-$$A_t = \delta_t + \gamma\lambda\,(1 - \text{done}_t)\,A_{t+1}, \qquad A_T \text{ 之后视为 } 0$$
+$$
+\delta_t = r_t' + \gamma\,V(s_{t+1})\,(1 - \text{done}_t) - V(s_t)
+$$
+
+$$
+A_t = \delta_t + \gamma\lambda\,(1 - \text{done}_t)\,A_{t+1}, \qquad A_T \text{ 之后视为 } 0
+$$
 
 ### 步骤 3：裁剪代理损失
 
-$$r_t = \exp(\text{logratio}_t), \qquad
-\mathcal{L} = -\operatorname{mean}_t\Bigl[\min\bigl(r_t A_t,\ \text{clip}(r_t, 1-\epsilon, 1+\epsilon)\,A_t\bigr)\Bigr]$$
+$$
+r_t = \exp(\text{logratio}_t)
+$$
+
+$$
+\mathcal{L} = -\operatorname{mean}_t\Bigl[\min\bigl(r_t A_t,\ \text{clip}(r_t, 1-\epsilon, 1+\epsilon)\,A_t\bigr)\Bigr]
+$$
 
 ## 说明
 

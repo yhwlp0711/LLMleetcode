@@ -25,8 +25,13 @@ $$A_i = \frac{r_i - \operatorname{mean}(r)}{\operatorname{std}(r) + \epsilon_{\t
 
 2. **PPO 裁剪目标**（和 `ppo_clip_loss` 一致）：
 
-$$r_i^{\text{ratio}} = \exp(\text{logratio}_i), \qquad
-\mathcal{L} = -\operatorname{mean}_i\Bigl[\min\bigl(r_i^{\text{ratio}} A_i,\ \text{clip}(r_i^{\text{ratio}}, 1-\epsilon, 1+\epsilon) A_i\bigr)\Bigr]$$
+$$
+r_i^{\text{ratio}} = \exp(\text{logratio}_i)
+$$
+
+$$
+\mathcal{L} = -\operatorname{mean}_i\Bigl[\min\bigl(r_i^{\text{ratio}} A_i,\ \text{clip}(r_i^{\text{ratio}}, 1-\epsilon, 1+\epsilon) A_i\bigr)\Bigr]
+$$
 
 ## 说明
 
