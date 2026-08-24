@@ -33,15 +33,3 @@ def sdpa(
         scores = scores.masked_fill(~mask, float("-inf"))
     attn = F.softmax(scores, dim=-1)
     return attn @ v
-
-
-def swiglu_ffn_forward(
-    x: torch.Tensor,
-    gate_w: torch.Tensor,  # (d_model, d_ff)
-    up_w: torch.Tensor,  # (d_model, d_ff)
-    down_w: torch.Tensor,  # (d_ff, d_model)
-) -> torch.Tensor:
-    """SwiGLU FFN: down(silu(x @ gate) * (x @ up))."""
-    gate = x @ gate_w
-    up = x @ up_w
-    return (F.silu(gate) * up) @ down_w

@@ -35,13 +35,14 @@ RMSNorm 之后，把 `h` 投影成 Q/K/V，各自切成多头 `(B, num_heads, T,
 
 ## 参考实现
 
-judge 已经提供 `rms_norm`、`sdpa`、`swiglu_ffn_forward` 三个工具，直接 import 用，
-不用重写：
+judge 已经提供 `rms_norm`、`sdpa` 两个工具，直接 import 用，不用重写；SwiGLU
+FFN 用几个 `nn.Linear` 自己在 `forward` 里拼：
 
 ```python
 import torch
 import torch.nn as nn
-from mlleetcode.reference import rms_norm, sdpa, swiglu_ffn_forward
+import torch.nn.functional as F
+from mlleetcode.reference import rms_norm, sdpa
 
 class TransformerBlock(nn.Module):
     def __init__(self, d_model, num_heads, d_ff, norm_eps=1e-6):
@@ -52,31 +53,31 @@ class TransformerBlock(nn.Module):
         self.norm_eps = norm_eps
 
         self.attn_norm_weight = nn.Parameter(torch.ones(d_model))
-        self.W_q = nn.Parameter(torch.zeros(d_model, d_model))
-        self.W_k = nn.Parameter(torch.zeros(d_model, d_model))
-        self.W_v = nn.Parameter(torch.zeros(d_model, d_model))
-        self.W_o = nn.Parameter(torch.zeros(d_model, d_model))
+        self.W_q = nn.Linear(d_model, d_model, bias=False)
+        self.W_k = nn.Linear(d_model, d_model, bias=False)
+        self.W_v = nn.Linear(d_model, d_model, bias=False)
+        self.W_o = nn.Linear(d_model, d_model, bias=False)
 
         self.ffn_norm_weight = nn.Parameter(torch.ones(d_model))
-        self.gate_proj = nn.Parameter(torch.zeros(d_model, d_ff))
-        self.up_proj   = nn.Parameter(torch.zeros(d_model, d_ff))
-        self.down_proj = nn.Parameter(torch.zeros(d_ff, d_model))
+        self.gate_proj = nn.Linear(d_model, d_ff, bias=False)
+        self.up_proj   = nn.Linear(d_model, d_ff, bias=False)
+        self.down_proj = nn.Linear(d_ff, d_model, bias=False)
 
     def forward(self, x, mask=None):
         B, T, D = x.shape
 
         # 1. Attention 子块（pre-norm）
         h = rms_norm(x, self.attn_norm_weight, self.norm_eps)
-        q = (h @ self.W_q).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        k = (h @ self.W_k).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        v = (h @ self.W_v).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        q = self.W_q(h).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.W_k(h).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        v = self.W_v(h).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         attn_out = sdpa(q, k, v, mask)
-        attn_out = attn_out.transpose(1, 2).reshape(B, T, D) @ self.W_o
+        attn_out = self.W_o(attn_out.transpose(1, 2).reshape(B, T, D))
         x = x + attn_out                                      # 残差
 
-        # 2. FFN 子块（pre-norm）
+        # 2. FFN 子块（pre-norm，SwiGLU）
         h = rms_norm(x, self.ffn_norm_weight, self.norm_eps)
-        ffn_out = swiglu_ffn_forward(h, self.gate_proj, self.up_proj, self.down_proj)
+        ffn_out = self.down_proj(F.silu(self.gate_proj(h)) * self.up_proj(h))
         return x + ffn_out                                    # 残差
 ```
 
@@ -96,9 +97,9 @@ class TransformerBlock(nn.Module):
    先 transpose 再 reshape（否则头间特征交错），用 `.reshape` 而非 `.view`（转置
    后张量不连续）。
 
-5. **参数名要和 judge 约定一致**。用裸 `nn.Parameter`（而非 `nn.Linear`）是为了对
-   齐函数式的 `sdpa` / `swiglu_ffn_forward` 接口，也让 `load_state_dict` 注入参考
-   权重更直接。
+5. **参数名要和 judge 约定一致**。四个注意力投影和三个 FFN 投影都用无 bias 的
+   `nn.Linear`（参数名形如 `W_q.weight`），RMSNorm 的缩放向量用 `nn.Parameter`；
+   `load_state_dict` 靠这些名字注入参考权重，写错名字会同步失败。
 
 6. **延伸**：本题为控规模省掉了 RoPE、GQA、KV cache。把
    `pytorch.llm.positional.rope`（旋转位置编码）、`pytorch.llm.attention.gqa`、

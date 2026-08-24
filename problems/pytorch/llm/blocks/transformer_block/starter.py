@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from mlleetcode.reference import rms_norm, sdpa, swiglu_ffn_forward
+from mlleetcode.reference import rms_norm, sdpa
 
 
 class TransformerBlock(nn.Module):
